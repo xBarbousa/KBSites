@@ -380,7 +380,7 @@ function kb_mail_render($kind, $vars) {
         . '<body style="margin:0;padding:0;background:#70757a;">' . "\n"
         . '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#70757a;font-size:1px;line-height:1px;">' . $e($m['pre'] ?? '') . "</div>\n"
         . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#70757a" style="background:#70757a;"><tr><td align="center" style="padding:30px 12px;">' . "\n"
-        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">' . "\n"
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;">' . "\n"
         . '<tr><td align="center" style="padding:0 6px 20px;">' . $header . "</td></tr>\n"
         . '<tr><td bgcolor="#ffffff" style="background:#ffffff;border:1px solid #e7e3db;border-radius:14px;padding:32px 30px;box-shadow:0 1px 3px rgba(0,0,0,.04);">' . "\n"
         . '<div style="width:56px;height:3px;border-radius:3px;background:#d9b45a;background-image:linear-gradient(115deg,#f4dc93,#d9b45a 45%,#b5872f);margin:0 0 20px;line-height:3px;font-size:1px;">&nbsp;</div>' . "\n"
