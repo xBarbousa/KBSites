@@ -110,17 +110,100 @@ if (!empty($_GET['gerr']) && isset($gmsg[$_GET['gerr']])) $err = $gmsg[$_GET['ge
 
 $me = kb_auth_user();
 if ($me) kb_link_tickets($me); // attach tickets sent with this email to the account
+
+// ---------- live chat API (JSON; the messages view polls this every ~2s) ----------
+// Handled early and exits, so the poll never renders the whole page. Client side only.
+if ($me && (($_GET['chat'] ?? '') !== '' || in_array($action, ['csend','ctyping','cread','crate'], true))) {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: no-store');
+  $tkn  = preg_replace('/[^A-Za-z0-9]/', '', (string)($_REQUEST['t'] ?? ''));
+  $tk   = $tkn !== '' ? kb_ticket_by_token($tkn) : null;
+  $owns = $tk && ((($tk['user_id'] ?? null) == $me['id']) || strtolower((string)$tk['email']) === strtolower((string)$me['email']));
+  if (!$owns) { http_response_code(404); echo json_encode(['ok'=>false]); exit; }
+  $db = kb_db();
+
+  if ($action === 'csend') {                       // client sends a message
+    $body = trim((string)($_POST['body'] ?? ''));
+    if ($body === '') { echo json_encode(['ok'=>false,'error'=>'empty']); exit; }
+    if (mb_strlen($body) > 8000) $body = mb_substr($body, 0, 8000);
+    if (!kb_rate_ok('csend_' . $me['id'], 40, 120)) { echo json_encode(['ok'=>false,'error'=>'slow']); exit; }
+    $db->prepare("INSERT INTO replies(ticket_id,body,who) VALUES(?,?,'client')")->execute([$tk['id'], $body]);
+    $rid = (int)$db->lastInsertId();
+    $db->prepare("UPDATE tickets SET status=CASE WHEN status='closed' THEN 'replied' ELSE status END WHERE id=?")->execute([$tk['id']]);
+    $db->prepare("DELETE FROM chat_typing WHERE ticket_id=? AND side='client'")->execute([$tk['id']]);
+    kb_respond_early(['ok'=>true, 'id'=>$rid, 'at'=>substr(date('Y-m-d H:i:s'), 0, 16)]);
+    kb_mail(kb_admin_email(), 'Client replied — ticket #' . $tk['id'], $me['name'] . " replied on ticket #" . $tk['id'] . ":\n\n" . $body . "\n\nOpen: $SITE/ticket/" . $tk['token']);
+    if ($DISCORD) kb_post_json($DISCORD, json_encode(['username'=>'KB Sites', 'content'=>'💬 Client replied on ticket **#' . $tk['id'] . '** — ' . $me['name'], 'embeds'=>[['description'=>mb_substr($body,0,1500), 'url'=>$SITE.'/ticket/'.$tk['token'], 'color'=>14268786]]], JSON_UNESCAPED_UNICODE));
+    $adm = kb_admin_user(); if ($adm) kb_notify($adm['id'], $tk['id'], 'client_reply', $me['name'] . ' replied on their ticket', '/ticket/' . $tk['token']);
+    exit;
+  }
+
+  if ($action === 'ctyping') {                      // "client is typing…"
+    if (!empty($_POST['on'])) {
+      $db->prepare("INSERT INTO chat_typing(ticket_id,side,name,user_id,expires_at) VALUES(?,'client',?,?,datetime('now','localtime','+6 seconds'))
+                    ON CONFLICT(ticket_id,side) DO UPDATE SET name=excluded.name,user_id=excluded.user_id,expires_at=excluded.expires_at")
+         ->execute([$tk['id'], (string)$me['name'], $me['id']]);
+    } else {
+      $db->prepare("DELETE FROM chat_typing WHERE ticket_id=? AND side='client'")->execute([$tk['id']]);
+    }
+    echo json_encode(['ok'=>true]); exit;
+  }
+
+  if ($action === 'cread') {                         // client has read up to reply #upto
+    $upto = (int)($_POST['upto'] ?? 0);
+    $db->prepare("INSERT INTO chat_reads(ticket_id,side,last_read_id,updated_at) VALUES(?,'client',?,datetime('now','localtime'))
+                  ON CONFLICT(ticket_id,side) DO UPDATE SET last_read_id=MAX(last_read_id,excluded.last_read_id),updated_at=excluded.updated_at")
+       ->execute([$tk['id'], $upto]);
+    echo json_encode(['ok'=>true]); exit;
+  }
+
+  if ($action === 'crate') {                         // rate the moderator who handled this ticket
+    $stars   = max(1, min(5, (int)($_POST['stars'] ?? 0)));
+    $comment = mb_substr(trim((string)($_POST['comment'] ?? '')), 0, 500);
+    $has = $db->prepare("SELECT 1 FROM replies WHERE ticket_id=? AND who='admin' LIMIT 1"); $has->execute([$tk['id']]);
+    if (!$has->fetch()) { echo json_encode(['ok'=>false,'error'=>'noservice']); exit; }
+    $modId = kb_ticket_mod_id($tk['id']);
+    $db->prepare("INSERT INTO mod_ratings(ticket_id,mod_id,client_id,stars,comment) VALUES(?,?,?,?,?)
+                  ON CONFLICT(ticket_id,client_id) DO UPDATE SET mod_id=excluded.mod_id,stars=excluded.stars,comment=excluded.comment,updated_at=datetime('now','localtime')")
+       ->execute([$tk['id'], $modId, $me['id'], $stars, $comment]);
+    echo json_encode(['ok'=>true, 'stars'=>$stars]); exit;
+  }
+
+  // ---- default: feed (new messages since ?after, plus typing + read state) ----
+  $after = (int)($_GET['after'] ?? 0);
+  $q = $db->prepare("SELECT id,who,body,created_at FROM replies WHERE ticket_id=? AND id>? ORDER BY id ASC");
+  $q->execute([$tk['id'], $after]);
+  $msgs = [];
+  foreach ($q->fetchAll() as $r) {
+    $msgs[] = ['id'=>(int)$r['id'], 'who'=>(($r['who'] ?? 'admin')==='client'?'you':'them'), 'body'=>(string)$r['body'], 'at'=>substr((string)$r['created_at'], 0, 16)];
+  }
+  $tp = $db->prepare("SELECT 1 FROM chat_typing WHERE ticket_id=? AND side='admin' AND expires_at>datetime('now','localtime')"); $tp->execute([$tk['id']]);
+  $rr = $db->prepare("SELECT last_read_id FROM chat_reads WHERE ticket_id=? AND side='admin'"); $rr->execute([$tk['id']]);
+  $rrow = $rr->fetch();
+  echo json_encode(['ok'=>true, 'msgs'=>$msgs, 'typing'=>(bool)$tp->fetch(), 'read_id'=>$rrow ? (int)$rrow['last_read_id'] : 0]);
+  exit;
+}
+
 // already signed in and sent here with ?next (e.g. from the request form)? go straight back.
 if ($me && $nextGiven && $action === '') acct_login_redirect();
 
 // ---------- logged-in actions ----------
 $meAdmin = $me && kb_is_admin($me); // the owner/admins never join the Partner Program
-if ($me && !$meAdmin && $action === 'join') { // become an affiliate
-  if (empty($_POST['agree'])) { $err='Please accept the Affiliate Agreement to join.'; }
+if ($me && !$meAdmin && $action === 'join') { // become an affiliate (Brazil only, paid by Pix)
+  $agree   = !empty($_POST['agree']);
+  $br      = !empty($_POST['br']);
+  $pixType = preg_replace('/[^a-z]/', '', strtolower((string)($_POST['pix_type'] ?? '')));
+  $pixKey  = trim((string)($_POST['pix_key'] ?? ''));
+  $cpf     = trim((string)($_POST['cpf'] ?? ''));
+  if (!$agree)                          { $err = 'Please accept the Affiliate Agreement to join.'; }
+  elseif (!$br)                         { $err = 'The Partner Program is for residents of Brazil only — please confirm you live in Brazil.'; }
+  elseif (!in_array($pixType, ['cpf','email','phone','random'], true) || $pixKey === '') { $err = 'Please add a valid Pix key — that\'s the only way commissions are paid.'; }
+  elseif ($cpf === '')                  { $err = 'Please add your CPF (needed for the Pix payout).'; }
   else {
     $code = $me['code'] ?: kb_aff_code();
-    kb_db()->prepare("UPDATE affiliates SET is_affiliate=1, code=?, agreed_at=datetime('now','localtime') WHERE id=?")->execute([$code,$me['id']]);
-    acct_mail($me['email'], null, 'partner_welcome', ['name'=>$me['name'], 'code'=>$code, 'link'=>$SITE.'/?ref='.$code, 'pct'=>$PCT]);
+    kb_db()->prepare("UPDATE affiliates SET is_affiliate=1, code=?, country='BR', pix_type=?, pix_key=?, cpf=?, payout=?, agreed_at=datetime('now','localtime') WHERE id=?")
+           ->execute([$code, $pixType, $pixKey, $cpf, kb_pix_summary($pixType, $pixKey, $cpf), $me['id']]);
+    acct_mail($me['email'], null, 'partner_welcome', ['name'=>$me['name'], 'code'=>$code, 'link'=>$SITE.'/?ref='.$code, 'pct'=>kb_tier_pct('bronze')]);
     header('Location: /account/partner?ok=joined'); exit;
   }
 }
@@ -129,8 +212,16 @@ if ($me && $action === 'rename') {
   header('Location: /account/settings?ok=name'); exit;
 }
 if ($me && !$meAdmin && $action === 'payout') {
-  kb_db()->prepare("UPDATE affiliates SET payout=? WHERE id=?")->execute([trim($_POST['payout'] ?? ''),$me['id']]);
-  header('Location: /account/partner?ok=payout'); exit;
+  $pixType = preg_replace('/[^a-z]/', '', strtolower((string)($_POST['pix_type'] ?? '')));
+  $pixKey  = trim((string)($_POST['pix_key'] ?? ''));
+  $cpf     = trim((string)($_POST['cpf'] ?? ''));
+  if (!in_array($pixType, ['cpf','email','phone','random'], true) || $pixKey === '') { $err = 'Please choose your Pix key type and enter the key.'; }
+  elseif ($cpf === '') { $err = 'Please add your CPF.'; }
+  else {
+    kb_db()->prepare("UPDATE affiliates SET pix_type=?, pix_key=?, cpf=?, payout=?, country='BR' WHERE id=?")
+           ->execute([$pixType, $pixKey, $cpf, kb_pix_summary($pixType, $pixKey, $cpf), $me['id']]);
+    header('Location: /account/partner?ok=payout'); exit;
+  }
 }
 if ($me && $action === 'password') {
   if (!empty($me['pass_hash']) && !password_verify($_POST['current'] ?? '', $me['pass_hash'])) { $err='Current password is wrong.'; }
@@ -288,6 +379,58 @@ if ($me) {
   .bell-item:hover{background:var(--bg);text-decoration:none}
   .bell-item.un{border-left-color:var(--gold);background:rgba(217,180,90,.06)}
   .bell-time{display:block;color:var(--muted);font-size:.72rem;margin-top:3px}
+  /* ---------- live chat (WhatsApp-style) ---------- */
+  .chat-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .chat-av{width:42px;height:42px;border-radius:50%;background:var(--grad);color:#1c1405;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Playfair Display',serif;font-size:1.2rem;flex:0 0 auto}
+  .chat-head .who{font-weight:700;font-size:1rem}
+  .chat-head .pres{font-size:.76rem;color:#8fd6a6}
+  .chat-head .pres.off{color:var(--muted)}
+  .chatlog{display:flex;flex-direction:column;gap:2px;max-height:min(56vh,520px);overflow-y:auto;padding:8px 4px 4px;margin:6px 0;scroll-behavior:smooth}
+  .chatlog::-webkit-scrollbar{width:7px}.chatlog::-webkit-scrollbar-thumb{background:var(--line);border-radius:7px}
+  .b{max-width:82%;border-radius:14px;padding:9px 13px 7px;white-space:pre-wrap;word-wrap:break-word;font-size:.93rem;line-height:1.45;position:relative;animation:bIn .18s ease}
+  @keyframes bIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.b{animation:none}}
+  .b.them{background:var(--card);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:5px}
+  .b.you{background:linear-gradient(135deg,rgba(217,180,90,.22),rgba(217,180,90,.13));border:1px solid rgba(217,180,90,.32);align-self:flex-end;border-bottom-right-radius:5px}
+  .b .meta2{font-size:.66rem;color:var(--muted);margin-top:3px;text-align:right;display:flex;gap:5px;justify-content:flex-end;align-items:center}
+  .b.them .meta2{text-align:left;justify-content:flex-start}
+  .b .tick{font-size:.72rem;letter-spacing:-2px;color:var(--muted)}
+  .b .tick.read{color:#4db6f0}
+  .b.day{align-self:center;background:rgba(255,255,255,.05);border:0;color:var(--muted);font-size:.7rem;padding:3px 12px;border-radius:100px;max-width:none}
+  .typing-row{align-self:flex-start;display:none;padding:2px}
+  .typing-row.show{display:flex}
+  .typing{display:inline-flex;gap:4px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;border-bottom-left-radius:5px;padding:11px 14px}
+  .typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:td 1.1s infinite ease-in-out}
+  .typing i:nth-child(2){animation-delay:.18s}.typing i:nth-child(3){animation-delay:.36s}
+  @keyframes td{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-5px);opacity:1}}
+  .composer{display:flex;gap:9px;align-items:flex-end;margin-top:12px;position:sticky;bottom:0}
+  .composer textarea{min-height:46px;max-height:160px;resize:none;border-radius:22px;padding:12px 16px}
+  .composer .send{flex:0 0 auto;width:46px;height:46px;padding:0;border-radius:50%;justify-content:center;font-size:1.1rem}
+  .cerr{color:#e0906a;font-size:.8rem;margin-top:6px;display:none}.cerr.show{display:block}
+  /* rating */
+  .rate-card{text-align:center}
+  .stars{display:inline-flex;gap:6px;font-size:1.9rem;line-height:1;cursor:pointer;margin:6px 0 4px;direction:rtl;justify-content:center}
+  .stars span{color:#5a4c33;transition:color .12s,transform .12s}
+  .stars span:hover,.stars span:hover ~ span,.stars span.on,.stars span.on ~ span{color:var(--gold-lt)}
+  .stars span:hover{transform:scale(1.15)}
+  .rated{color:#8fd6a6;font-weight:600;font-size:.9rem}
+  /* patente (affiliate rank) */
+  .patente{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:100px;font-weight:700;font-size:1rem;border:1px solid}
+  .pt-bronze{background:rgba(176,120,70,.14);border-color:rgba(205,140,85,.5);color:#e0a878}
+  .pt-prata{background:rgba(180,188,198,.12);border-color:rgba(200,208,218,.45);color:#d3dae4}
+  .pt-gold{background:rgba(217,180,90,.16);border-color:rgba(244,220,147,.55);color:var(--gold-lt)}
+  .pt-platina{background:rgba(120,200,220,.12);border-color:rgba(150,220,240,.5);color:#a7e6f2}
+  .pt-em{font-size:1.2rem}
+  .prog{height:9px;border-radius:9px;background:var(--bg);border:1px solid var(--line);overflow:hidden;margin:10px 0 6px}
+  .prog i{display:block;height:100%;background:var(--grad);border-radius:9px;transition:width .5s}
+  .tier-tab{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 4px}
+  .tier-cell{text-align:center;padding:11px 6px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:.78rem}
+  .tier-cell.on{border-color:var(--gold);background:rgba(217,180,90,.08)}
+  .tier-cell .te{font-size:1.3rem;display:block}
+  .tier-cell b{display:block;font-size:.86rem;margin:3px 0 1px}
+  .tier-cell .tp{color:var(--gold-lt);font-weight:700}
+  @media(max-width:520px){.tier-tab{grid-template-columns:repeat(2,1fr)}}
+  .pixgrid{display:grid;grid-template-columns:170px 1fr;gap:10px}@media(max-width:520px){.pixgrid{grid-template-columns:1fr}}
 </style></head><body>
 <div class="wrap">
   <div class="top">
@@ -326,22 +469,58 @@ if ($me) {
 
 <?php if ($view==='messages'): // ---- client chat ----
   if ($openTicket):
-    $reps = kb_db()->prepare("SELECT * FROM replies WHERE ticket_id=? ORDER BY id ASC"); $reps->execute([$openTicket['id']]); $reps=$reps->fetchAll(); ?>
+    $reps = kb_db()->prepare("SELECT * FROM replies WHERE ticket_id=? ORDER BY id ASC"); $reps->execute([$openTicket['id']]); $reps=$reps->fetchAll();
+    $lastId = 0; foreach($reps as $r){ if((int)$r['id']>$lastId) $lastId=(int)$r['id']; }
+    $arow = kb_db()->prepare("SELECT last_read_id FROM chat_reads WHERE ticket_id=? AND side='admin'"); $arow->execute([$openTicket['id']]); $arow=$arow->fetch();
+    $adminRead = $arow ? (int)$arow['last_read_id'] : 0;
+    $hasAdmin = false; foreach($reps as $r){ if(($r['who']??'admin')==='admin'){ $hasAdmin=true; break; } }
+    $mr = kb_db()->prepare("SELECT stars FROM mod_ratings WHERE ticket_id=? AND client_id=?"); $mr->execute([$openTicket['id'],$me['id']]); $mr=$mr->fetch();
+    $myStars = $mr ? (int)$mr['stars'] : 0;
+    $opl = $PLANS[$openTicket['plan'] ?? '']['label'] ?? '';
+    function tick_html($mine,$id,$adminRead){ if(!$mine) return ''; $read = ($id<=$adminRead); return '<span class="tick'.($read?' read':'').'">'.($read?'✓✓':'✓').'</span>'; }
+  ?>
     <p class="meta"><a href="/account/messages">← All messages</a></p>
-    <div class="card">
-      <h2>Ticket #<?=h($openTicket['id'])?><?= $openTicket['business']?' — '.h($openTicket['business']):'' ?></h2>
-      <?php $opl = $PLANS[$openTicket['plan'] ?? '']['label'] ?? ''; ?>
-      <p class="meta" style="margin-bottom:10px"><?=h($openTicket['created_at'])?><?= $opl!=='' ? ' · Plan: <b style="color:var(--gold-lt)">'.h($opl).'</b>' : '' ?></p>
-      <div class="bubble you"><div class="lab">You</div><?=h($openTicket['message'])?></div>
-      <?php foreach($reps as $r): $mine=($r['who']==='client'); ?>
-        <div class="bubble <?=$mine?'you':'them'?>"><div class="lab"><?=$mine?'You':'KB Sites'?></div><?=h($r['body'])?></div>
-      <?php endforeach; ?>
-      <form method="post" style="margin-top:16px">
-        <input type="hidden" name="action" value="creply"><input type="hidden" name="token" value="<?=h($openTicket['token'])?>">
-        <label>Reply to KB Sites</label>
-        <textarea name="body" placeholder="Write a message…" required></textarea>
-        <div style="margin-top:10px"><button class="btn" type="submit">Send →</button></div>
-      </form>
+    <div class="card" id="chat" data-token="<?=h($openTicket['token'])?>" data-last="<?=$lastId?>" data-read="<?=$adminRead?>">
+      <div class="chat-head">
+        <span class="chat-av">KB</span>
+        <div>
+          <div class="who">KB Sites</div>
+          <div class="pres" id="chatPres">Support · request #<?=h($openTicket['id'])?><?= $opl!=='' ? ' · '.h($opl) : '' ?></div>
+        </div>
+      </div>
+      <div class="chatlog" id="chatlog">
+        <div class="b you">
+<?=h($openTicket['message'])?>
+          <div class="meta2"><?=h(substr($openTicket['created_at'],0,16))?> <span class="tick read">✓✓</span></div>
+        </div>
+        <?php foreach($reps as $r): $mine=(($r['who']??'admin')==='client'); ?>
+          <div class="b <?=$mine?'you':'them'?>" data-id="<?=h($r['id'])?>">
+<?=h($r['body'])?>
+            <div class="meta2"><?=h(substr($r['created_at'],0,16))?> <?=tick_html($mine,(int)$r['id'],$adminRead)?></div>
+          </div>
+        <?php endforeach; ?>
+        <div class="typing-row" id="typingRow"><div class="typing"><i></i><i></i><i></i></div></div>
+      </div>
+      <div class="composer">
+        <textarea id="chatInput" rows="1" placeholder="Write a message…" maxlength="8000"></textarea>
+        <button class="btn send" type="button" id="chatSend" aria-label="Send">➤</button>
+      </div>
+      <p class="cerr" id="chatErr"></p>
+      <noscript>
+        <form method="post" style="margin-top:12px">
+          <input type="hidden" name="action" value="creply"><input type="hidden" name="token" value="<?=h($openTicket['token'])?>">
+          <textarea name="body" placeholder="Write a message…" required></textarea>
+          <div style="margin-top:10px"><button class="btn" type="submit">Send →</button></div>
+        </form>
+      </noscript>
+    </div>
+    <div class="card rate-card" id="rateCard" style="<?= $hasAdmin ? '' : 'display:none' ?>" data-rated="<?=$myStars?>">
+      <h2 style="margin-bottom:2px">Rate your support</h2>
+      <p class="meta" id="rateSub"><?= $myStars ? 'Thanks for your feedback — tap to change.' : 'How was our service on this conversation? (only we see this)' ?></p>
+      <div class="stars" id="stars">
+        <?php for($s=5;$s>=1;$s--): ?><span data-s="<?=$s?>" class="<?=($myStars && $s<=$myStars)?'on':''?>">★</span><?php endfor; ?>
+      </div>
+      <p class="rated" id="rateDone" style="<?= $myStars ? '' : 'display:none' ?>">You rated <?=$myStars?:0?>/5 ★</p>
     </div>
   <?php else: ?>
     <h1>My messages</h1>
@@ -356,30 +535,82 @@ if ($me) {
     <?php endforeach; endif; ?>
   <?php endif; ?>
 
-<?php elseif ($view==='partner'): // ---- affiliate ---- ?>
+<?php elseif ($view==='partner'): // ---- affiliate ----
+  $pf = fn($x) => rtrim(rtrim(number_format((float)$x, 1), '0'), '.');
+  $TIERS = kb_tiers();
+  ?>
   <?php if (!$me['is_affiliate']): ?>
     <h1>Partner Program</h1>
-    <p class="lead">Refer a business to KB Sites and earn <b style="color:var(--gold-lt)"><?=rtrim(rtrim(number_format($PCT,1),'0'),'.')?>%</b> of every website sale — paid after the client pays.</p>
+    <p class="lead">Refer a business to KB Sites and earn a commission on every website that pays — from <b style="color:var(--gold-lt)">~<?=$pf(kb_tier_pct('bronze'))?>%</b> up to <b style="color:var(--gold-lt)">~<?=$pf(kb_tier_pct('platina'))?>%</b> as you rank up. 🇧🇷 <b>Brazil only</b> · paid by <b>Pix</b>.</p>
+
+    <div class="card">
+      <h2>Ranks (patentes)</h2>
+      <p class="meta" style="margin-bottom:6px">You earn <b>1 point</b> each time a client you referred pays for a website. More points, higher rank, higher commission.</p>
+      <div class="tier-tab">
+        <?php foreach($TIERS as $k=>$t): ?>
+          <div class="tier-cell"><span class="te"><?=$t[1]?></span><b><?=h($t[0])?></b>
+            <div class="tp">~<?=$pf($t[3])?>%</div>
+            <div class="meta"><?=$t[4][0]?>–<?=$t[4][1]?>% · <?=(int)$t[2]?>+ pts</div></div>
+        <?php endforeach; ?>
+      </div>
+      <p class="meta" style="margin-top:8px">Commissions are paid in <b>reais (R$) via Pix</b>. Because the site price is in US dollars, the amount is <b>approximate (~)</b> — it varies with the USD→BRL exchange rate on the day we pay. The monthly hosting/care fee never earns commission.</p>
+    </div>
+
     <div class="card">
       <h2>Join — it's free</h2>
-      <p class="meta">You already have an account. Accept the agreement to get your referral link.</p>
+      <p class="meta">You already have an account. Confirm your details and accept the agreement to get your referral link.</p>
       <div class="doc"><?php include __DIR__ . '/../partners/_agreement.php'; ?></div>
       <form method="post">
         <input type="hidden" name="action" value="join">
-        <label class="agree"><input type="checkbox" name="agree" value="1"> I have read and agree to the Affiliate Agreement.</label>
+        <label class="agree" style="margin-top:16px"><input type="checkbox" name="br" value="1"> I confirm I <b style="color:var(--ink)">&nbsp;live in Brazil</b>&nbsp;(the Partner Program and Pix payouts are for Brazil only).</label>
+        <div class="pixgrid" style="margin-top:6px">
+          <div><label style="margin-top:0">Pix key type</label>
+            <select name="pix_type" style="width:100%;background:var(--bg);border:1px solid #5a4c33;border-radius:10px;padding:12px 14px;color:var(--ink);font-family:inherit;font-size:.95rem">
+              <option value="cpf">CPF</option><option value="email">E-mail</option><option value="phone">Telefone</option><option value="random">Chave aleatória</option>
+            </select></div>
+          <div><label style="margin-top:0">Pix key</label><input name="pix_key" placeholder="your Pix key" required></div>
+        </div>
+        <label>CPF</label><input name="cpf" placeholder="000.000.000-00" required>
+        <p class="meta" style="margin-top:6px">Your CPF is used only for the Pix payout. You're an independent partner and pay your own taxes on what you earn.</p>
+        <label class="agree" style="margin-top:12px"><input type="checkbox" name="agree" value="1"> I have read and agree to the <a href="/account/partner">Affiliate Agreement</a>.</label>
         <div style="margin-top:16px"><button class="btn block" type="submit">Join the Partner Program →</button></div>
       </form>
     </div>
   <?php else:
     $refs = kb_db()->prepare("SELECT * FROM tickets WHERE ref_code=? ORDER BY id DESC"); $refs->execute([$me['code']]); $refs=$refs->fetchAll();
-    $sales=array_filter($refs,fn($t)=>$t['paid']);
-    // voided commissions (e.g. self-referral) count as 0
-    $comOf=fn($t)=>function_exists('kb_ticket_commission') ? kb_ticket_commission($t,$PCT) : (float)$t['value']*$PCT/100;
+    $sales=array_filter($refs,fn($t)=>$t['paid'] && empty($t['comm_void']));
+    $comOf=fn($t)=>kb_ticket_commission($t);                                  // tier-aware; voided = 0
     $earned=array_sum(array_map(fn($t)=>$t['paid']?$comOf($t):0,$refs));
     $paidOut=array_sum(array_map(fn($t)=>($t['paid']&&$t['commission_paid'])?$comOf($t):0,$refs));
-    $link=$SITE.'/?ref='.$me['code']; ?>
+    $link=$SITE.'/?ref='.$me['code'];
+    $myTier=kb_aff_tier($me); $ti=kb_tier_info($myTier); $myPts=kb_aff_points($me['id']); $myPct=kb_tier_pct($myTier); $next=kb_tier_next($me);
+    $needPix = trim((string)($me['pix_key'] ?? ''))==='';
+  ?>
     <h1>Partner dashboard</h1>
-    <?php if(trim($me['payout'])===''): ?><div class="warn">⚠ Add your payout details below so we can pay you.</div><?php endif; ?>
+    <?php if($needPix): ?><div class="warn">⚠ Add your Pix key below so we can pay your commissions.</div><?php endif; ?>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div><h2 style="margin-bottom:8px">Your rank</h2>
+          <span class="patente pt-<?=$myTier?>"><span class="pt-em"><?=$ti[1]?></span> <?=h($ti[0])?></span>
+          <span class="meta" style="margin-left:8px">~<?=$pf($myPct)?>% commission · <b style="color:var(--gold-lt)"><?=$myPts?> pt<?=$myPts===1?'':'s'?></b></span>
+        </div>
+      </div>
+      <?php if($next):
+        $prevMin = (int)$ti[2]; $span = max(1, $next['min']-$prevMin); $done = min($span, $myPts-$prevMin); $pctBar = max(6, round($done/$span*100)); ?>
+        <div class="prog"><i style="width:<?=$pctBar?>%"></i></div>
+        <p class="meta"><b style="color:var(--gold-lt)"><?=$next['need']?></b> more paid client<?=$next['need']===1?'':'s'?> to reach <?=kb_tier_info($next['key'])[1]?> <b><?=h(kb_tier_info($next['key'])[0])?></b> (~<?=$pf(kb_tier_pct($next['key']))?>%).</p>
+      <?php else: ?>
+        <div class="prog"><i style="width:100%"></i></div>
+        <p class="meta">You've reached the top rank. 💎</p>
+      <?php endif; ?>
+      <div class="tier-tab">
+        <?php foreach($TIERS as $k=>$t): ?>
+          <div class="tier-cell <?=$k===$myTier?'on':''?>"><span class="te"><?=$t[1]?></span><b><?=h($t[0])?></b><div class="tp">~<?=$pf($t[3])?>%</div><div class="meta"><?=(int)$t[2]?>+ pts</div></div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+
     <div class="card"><h2>Your referral link</h2>
       <div class="copy"><input id="reflink" readonly value="<?=h($link)?>"><button class="btn sm" type="button" onclick="cp('reflink')">Copy</button></div>
       <p class="meta" style="margin-top:8px">Code: <b style="color:var(--gold-lt)"><?=h($me['code'])?></b> · valid for 30 days after someone clicks.</p>
@@ -387,19 +618,29 @@ if ($me) {
     <div class="stats">
       <div class="stat"><div class="n"><?=count($refs)?></div><div class="l">Referred leads</div></div>
       <div class="stat"><div class="n"><?=count($sales)?></div><div class="l">Paying clients</div></div>
-      <div class="stat green"><div class="n"><?=money($earned)?></div><div class="l">Total earned</div></div>
+      <div class="stat green"><div class="n"><?=money($earned)?></div><div class="l">Total earned (~USD)</div></div>
       <div class="stat amber"><div class="n"><?=money($earned-$paidOut)?></div><div class="l">Pending payout</div></div>
     </div>
-    <div class="card"><h2>Payout details</h2>
+    <div class="card"><h2>Pix payout details 🇧🇷</h2>
+      <p class="meta" style="margin-bottom:8px">Commissions are paid only by Pix, in reais. The amount is approximate — it depends on the USD→BRL rate on payout day.</p>
       <form method="post"><input type="hidden" name="action" value="payout">
-        <textarea name="payout" rows="3" placeholder="PayPal email, or bank / Pix"><?=h($me['payout'])?></textarea>
-        <div style="margin-top:12px"><button class="btn" type="submit">Save payout details</button></div>
+        <div class="pixgrid">
+          <div><label style="margin-top:0">Pix key type</label>
+            <select name="pix_type" style="width:100%;background:var(--bg);border:1px solid #5a4c33;border-radius:10px;padding:12px 14px;color:var(--ink);font-family:inherit;font-size:.95rem">
+              <?php foreach(['cpf'=>'CPF','email'=>'E-mail','phone'=>'Telefone','random'=>'Chave aleatória'] as $vk=>$vl): ?>
+                <option value="<?=$vk?>" <?=($me['pix_type']??'')===$vk?'selected':''?>><?=$vl?></option>
+              <?php endforeach; ?>
+            </select></div>
+          <div><label style="margin-top:0">Pix key</label><input name="pix_key" value="<?=h($me['pix_key'] ?? '')?>" placeholder="your Pix key" required></div>
+        </div>
+        <label>CPF</label><input name="cpf" value="<?=h($me['cpf'] ?? '')?>" placeholder="000.000.000-00" required>
+        <div style="margin-top:12px"><button class="btn" type="submit">Save Pix details</button></div>
       </form>
     </div>
     <?php if($refs): ?><div class="card"><h2>Your referrals</h2>
       <?php foreach($refs as $t): $com=$comOf($t); ?>
         <div class="tk"><span><b><?=h($t['business']?:$t['name'])?></b><div class="meta"><?=h(substr($t['created_at'],0,10))?></div></span>
-          <span><?= !empty($t['comm_void']) ? '<span class="meta">Not eligible</span>' : ($t['paid']?'<b style="color:#8fd6a6">'.money($com).'</b>':'<span class="meta">'.money($com).' if they buy</span>') ?></span></div>
+          <span><?= !empty($t['comm_void']) ? '<span class="meta">Not eligible</span>' : ($t['paid']?'<b style="color:#8fd6a6">~'.money($com).'</b>':'<span class="meta">~'.money($com).' if they buy</span>') ?></span></div>
       <?php endforeach; ?></div><?php endif; ?>
   <?php endif; ?>
 
@@ -487,6 +728,96 @@ if ($me) {
 <script>
 function cp(id){var el=document.getElementById(id);el.select();el.setSelectionRange(0,99999);try{document.execCommand('copy');event.target.textContent='Copied ✓';setTimeout(function(){event.target.textContent='Copy'},1500)}catch(e){}}
 (function(){var b=document.getElementById('bellBtn'),m=document.getElementById('bellMenu');if(b&&m){b.addEventListener('click',function(e){e.stopPropagation();m.classList.toggle('open');});m.addEventListener('click',function(e){e.stopPropagation();});document.addEventListener('click',function(){m.classList.remove('open');});}})();
+</script>
+<script>
+/* Live chat: polling feed, typing indicator, read ticks, AJAX send, moderator rating.
+   Re-inits after a panel.js swap via the 'kb:swapped' event. */
+(function(){
+  function initChat(){
+    var chat=document.getElementById('chat');
+    if(!chat||chat.dataset.kbInit) return;
+    chat.dataset.kbInit='1';
+    var API='/account/?chat=1', FEED='/account/?chat=feed';
+    var token=chat.getAttribute('data-token');
+    var log=document.getElementById('chatlog'), typingRow=document.getElementById('typingRow');
+    var input=document.getElementById('chatInput'), sendBtn=document.getElementById('chatSend'), errEl=document.getElementById('chatErr');
+    var last=parseInt(chat.getAttribute('data-last')||'0',10);
+    var adminRead=parseInt(chat.getAttribute('data-read')||'0',10);
+    var rateCard=document.getElementById('rateCard');
+    function esc(s){var d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;}
+    function atBottom(){return log.scrollHeight-log.scrollTop-log.clientHeight<90;}
+    function toBottom(){log.scrollTop=log.scrollHeight;}
+    function tickHtml(read){return '<span class="tick'+(read?' read':'')+'">'+(read?'✓✓':'✓')+'</span>';}
+    function addMsg(m){
+      if(m.id&&log.querySelector('.b[data-id="'+m.id+'"]')) return;
+      var b=document.createElement('div');
+      b.className='b '+(m.who==='you'?'you':'them');
+      if(m.id) b.setAttribute('data-id',m.id);
+      b.innerHTML=esc(m.body)+'<div class="meta2">'+esc(m.at||'')+' '+(m.who==='you'?tickHtml(m.id<=adminRead):'')+'</div>';
+      log.insertBefore(b,typingRow);
+      if(m.id&&m.id>last) last=m.id;
+    }
+    function updateTicks(){
+      var bs=log.querySelectorAll('.b.you[data-id]');
+      for(var i=0;i<bs.length;i++){var id=parseInt(bs[i].getAttribute('data-id'),10);var t=bs[i].querySelector('.tick');
+        if(t){var read=id<=adminRead;t.className='tick'+(read?' read':'');t.textContent=read?'✓✓':'✓';}}
+    }
+    function autoGrow(){input.style.height='auto';input.style.height=Math.min(160,input.scrollHeight)+'px';}
+    function post(action,extra){var fd=new FormData();fd.append('action',action);fd.append('t',token);if(extra)for(var k in extra)fd.append(k,extra[k]);
+      return fetch(API,{method:'POST',body:fd,credentials:'same-origin'});}
+    // ---- send ----
+    var sending=false;
+    function send(){
+      var body=(input.value||'').trim(); if(!body||sending) return;
+      sending=true; errEl.classList.remove('show');
+      post('csend',{body:body}).then(function(r){return r.json();}).then(function(j){
+        sending=false;
+        if(j&&j.ok){addMsg({id:j.id,who:'you',body:body,at:j.at});input.value='';autoGrow();toBottom();stopTyping();if(rateCard)rateCard.style.display='';}
+        else{errEl.textContent=(j&&j.error==='slow')?'Slow down a moment…':'Could not send — try again.';errEl.classList.add('show');}
+      }).catch(function(){sending=false;errEl.textContent='Network error — try again.';errEl.classList.add('show');});
+    }
+    sendBtn.addEventListener('click',send);
+    input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+    // ---- typing ----
+    var typingOn=false,lastPing=0,stopTimer=null;
+    function typing(){var now=Date.now();if(now-lastPing>2500){lastPing=now;typingOn=true;post('ctyping',{on:'1'});}clearTimeout(stopTimer);stopTimer=setTimeout(stopTyping,4000);}
+    function stopTyping(){clearTimeout(stopTimer);if(typingOn){typingOn=false;lastPing=0;post('ctyping',{});}}
+    input.addEventListener('input',function(){autoGrow();typing();});
+    input.addEventListener('blur',stopTyping);
+    // ---- read ----
+    function markRead(){post('cread',{upto:last});}
+    // ---- poll ----
+    var polling=false, timer=setInterval(poll,2000);
+    function poll(){
+      if(!document.body.contains(chat)){clearInterval(timer);return;}
+      if(polling||document.hidden) return; polling=true;
+      fetch(FEED+'&t='+encodeURIComponent(token)+'&after='+last,{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(j){
+        polling=false; if(!j||!j.ok) return;
+        var stick=atBottom(),newThem=false;
+        (j.msgs||[]).forEach(function(m){var had=m.id&&log.querySelector('.b[data-id="'+m.id+'"]');addMsg(m);if(!had&&m.who==='them')newThem=true;});
+        if(typeof j.read_id==='number'&&j.read_id>adminRead){adminRead=j.read_id;updateTicks();}
+        if(typingRow) typingRow.classList.toggle('show',!!j.typing);
+        if(newThem){if(rateCard)rateCard.style.display='';markRead();if(stick)toBottom();}
+        else if(j.typing&&stick){toBottom();}
+      }).catch(function(){polling=false;});
+    }
+    document.addEventListener('visibilitychange',function(){if(!document.hidden)poll();});
+    // ---- rating ----
+    if(rateCard){
+      var stars=document.getElementById('stars'),done=document.getElementById('rateDone'),sub=document.getElementById('rateSub');
+      if(stars){var sp=stars.querySelectorAll('span');for(var i=0;i<sp.length;i++){(function(el){el.addEventListener('click',function(){
+        var val=parseInt(el.getAttribute('data-s'),10);
+        post('crate',{stars:val}).then(function(r){return r.json();}).then(function(j){
+          if(j&&j.ok){for(var k=0;k<sp.length;k++){sp[k].classList.toggle('on',parseInt(sp[k].getAttribute('data-s'),10)<=val);}
+            if(done){done.textContent='You rated '+val+'/5 ★';done.style.display='';}if(sub)sub.textContent='Thanks for your feedback — tap to change.';}
+        }).catch(function(){});
+      });})(sp[i]);}}
+    }
+    autoGrow();toBottom();markRead();poll();
+  }
+  if(document.readyState!=='loading') initChat(); else document.addEventListener('DOMContentLoaded',initChat);
+  document.addEventListener('kb:swapped',initChat);
+})();
 </script>
 <script src="/panel.js"></script>
 </body></html>

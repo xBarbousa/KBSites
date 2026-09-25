@@ -99,6 +99,15 @@ function kb_db() {
     try { $pdo->exec("UPDATE affiliates SET is_affiliate=1 WHERE code IS NOT NULL AND code<>''"); } catch (Exception $e) {}
   }
   if (empty($acols['photo'])) { try { $pdo->exec("ALTER TABLE affiliates ADD COLUMN photo TEXT"); } catch (Exception $e) {} }
+  // --- Brazil-only affiliate payout (Pix) + partner rank (patente) override ---
+  $affAdd = [
+    'country'       => "ALTER TABLE affiliates ADD COLUMN country TEXT",          // 'BR' once they declare Brazil residence
+    'pix_key'       => "ALTER TABLE affiliates ADD COLUMN pix_key TEXT",          // the Pix key we pay to
+    'pix_type'      => "ALTER TABLE affiliates ADD COLUMN pix_type TEXT",         // cpf / email / phone / random
+    'cpf'           => "ALTER TABLE affiliates ADD COLUMN cpf TEXT",              // CPF (tax id) — the partner pays their own IR
+    'tier_override' => "ALTER TABLE affiliates ADD COLUMN tier_override TEXT",    // admin locks a rank, else it's earned by points
+  ];
+  foreach ($affAdd as $name => $sql) { if (empty($acols[$name])) { try { $pdo->exec($sql); } catch (Exception $e) {} } }
 
   // "remember me" tokens for persistent login (survives browser restarts)
   $pdo->exec("CREATE TABLE IF NOT EXISTS remember_tokens(
@@ -120,6 +129,8 @@ function kb_db() {
   $rcols = [];
   foreach ($pdo->query("PRAGMA table_info(replies)") as $c) { $rcols[$c['name']] = true; }
   if (empty($rcols['who'])) { try { $pdo->exec("ALTER TABLE replies ADD COLUMN who TEXT DEFAULT 'admin'"); } catch (Exception $e) {} }
+  // which moderator/admin account posted an 'admin' reply (so their service can be rated)
+  if (empty($rcols['mod_id'])) { try { $pdo->exec("ALTER TABLE replies ADD COLUMN mod_id INTEGER"); } catch (Exception $e) {} }
 
   // browsers (kb_dev cookie) + IPs each account has used — flags self-referrals
   $pdo->exec("CREATE TABLE IF NOT EXISTS user_devices(
@@ -137,6 +148,30 @@ function kb_db() {
     kind TEXT, to_email TEXT, ticket_id INTEGER, subject TEXT,
     ok INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now','localtime'))
+  )");
+
+  // internal service rating: a client rates the moderator who handled their ticket (1–5 stars).
+  $pdo->exec("CREATE TABLE IF NOT EXISTS mod_ratings(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER, mod_id INTEGER, client_id INTEGER,
+    stars INTEGER, comment TEXT,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    updated_at TEXT DEFAULT (datetime('now','localtime')),
+    UNIQUE(ticket_id, client_id)
+  )");
+
+  // live chat: 'X is typing…' state, one row per (ticket, side). side = 'client' | 'admin'.
+  $pdo->exec("CREATE TABLE IF NOT EXISTS chat_typing(
+    ticket_id INTEGER, side TEXT, name TEXT, user_id INTEGER,
+    expires_at TEXT,
+    PRIMARY KEY(ticket_id, side)
+  )");
+
+  // live chat: read receipts (WhatsApp-style ✓✓). last reply id each side has seen.
+  $pdo->exec("CREATE TABLE IF NOT EXISTS chat_reads(
+    ticket_id INTEGER, side TEXT, last_read_id INTEGER,
+    updated_at TEXT DEFAULT (datetime('now','localtime')),
+    PRIMARY KEY(ticket_id, side)
   )");
 
   return $pdo;
@@ -292,20 +327,148 @@ function kb_google_client_secret() {
   return isset($GLOBALS['KB_GOOGLE_CLIENT_SECRET']) ? $GLOBALS['KB_GOOGLE_CLIENT_SECRET'] : '';
 }
 
-// Commission percentage (of the site price only). Editable in admin settings.
+// ===================== Affiliate ranks (patentes) =====================
+// Bronze → Prata → Gold → Platina. A partner earns 1 point per referred client the
+// admin marks Paid; the rank follows the points. Each rank pays an APPROXIMATE % of the
+// site build price, quoted as "~X%" inside a band, because payouts are converted USD→BRL
+// (Pix) at the day's rate. Rank thresholds (min points) and each rank's % are editable in
+// the admin Settings (tier_<key>_min / tier_<key>_pct); the ± band below is fixed and is
+// what the Affiliate Agreement discloses.
+function kb_tiers() {
+  // key => [label, emoji, default min points, default ~%, [band low, band high]]
+  $def = [
+    'bronze'  => ['Bronze',  '🥉', 0,   5.0, [3, 7]],
+    'prata'   => ['Prata',   '🥈', 5,  10.0, [8, 12]],
+    'gold'    => ['Gold',    '🥇', 10, 15.0, [13, 17]],
+    'platina' => ['Platina', '💎', 25, 20.0, [18, 22]],
+  ];
+  foreach ($def as $k => &$t) {
+    $mp = kb_setting_get('tier_' . $k . '_min'); if ($mp !== null && $mp !== '') $t[2] = max(0, (int)$mp);
+    $pc = kb_setting_get('tier_' . $k . '_pct'); if ($pc !== null && $pc !== '') $t[3] = (float)$pc;
+  }
+  unset($t);
+  return $def;
+}
+function kb_tier_keys() { return array_keys(kb_tiers()); }
+function kb_tier_info($key) { $t = kb_tiers(); return $t[$key] ?? $t['bronze']; }
+function kb_tier_label($key) { $t = kb_tier_info($key); return $t[1] . ' ' . $t[0]; }
+function kb_tier_pct($key) { $t = kb_tier_info($key); return (float)$t[3]; }
+// The rank a given number of points reaches (highest threshold satisfied).
+function kb_tier_for_points($points) {
+  $best = 'bronze';
+  foreach (kb_tiers() as $k => $t) { if ((int)$points >= (int)$t[2]) $best = $k; }
+  return $best;
+}
+// Points = referred clients marked Paid (voided referrals never count).
+function kb_aff_points($affId) {
+  if (!$affId) return 0;
+  try {
+    $st = kb_db()->prepare("SELECT COUNT(*) c FROM tickets t JOIN affiliates a ON a.code=t.ref_code
+                            WHERE a.id=? AND t.paid=1 AND (t.comm_void IS NULL OR t.comm_void=0)");
+    $st->execute([$affId]);
+    $r = $st->fetch();
+    return (int)($r['c'] ?? 0);
+  } catch (Exception $e) { return 0; }
+}
+// A partner's current rank: an admin override wins, otherwise it's earned by points.
+function kb_aff_tier($aff) {
+  if (!$aff) return 'bronze';
+  $ov = $aff['tier_override'] ?? '';
+  if ($ov !== '' && in_array($ov, kb_tier_keys(), true)) return $ov;
+  return kb_tier_for_points(kb_aff_points((int)$aff['id']));
+}
+function kb_aff_pct($aff) { return kb_tier_pct(kb_aff_tier($aff)); }
+// Next rank up (key, points still needed), or null at the top.
+function kb_tier_next($aff) {
+  $cur = kb_aff_tier($aff);
+  $pts = kb_aff_points((int)($aff['id'] ?? 0));
+  $keys = kb_tier_keys();
+  $i = array_search($cur, $keys, true);
+  if ($i === false || $i >= count($keys) - 1) return null;
+  $nk = $keys[$i + 1]; $ni = kb_tier_info($nk);
+  return ['key' => $nk, 'need' => max(0, (int)$ni[2] - (int)$pts), 'min' => (int)$ni[2]];
+}
+
+// Human-readable payout line for the admin "Pay to" column, from the Pix fields.
+function kb_pix_summary($type, $key, $cpf) {
+  $labels = ['cpf'=>'CPF', 'email'=>'E-mail', 'phone'=>'Telefone', 'random'=>'Chave aleatória'];
+  $t = $labels[$type] ?? 'Pix';
+  $out = 'Pix (' . $t . '): ' . trim((string)$key);
+  if (trim((string)$cpf) !== '') $out .= "\nCPF: " . trim((string)$cpf);
+  return $out;
+}
+
+// Legacy single-rate accessor (kept as the default fallback; the tiers above are the real source).
 function kb_commission_pct() {
   $v = kb_setting_get('commission_pct');
   return ($v === null || $v === '') ? 20 : (float)$v;
 }
+// The % that applies to one referred ticket: a rate locked at payment wins; else the
+// referring partner's live rank %; else the legacy setting.
+function kb_ticket_pct($t) {
+  if (isset($t['comm_pct']) && $t['comm_pct'] !== null && $t['comm_pct'] !== '') return (float)$t['comm_pct'];
+  if (!empty($t['ref_code'])) { $a = kb_aff_by_code($t['ref_code']); if ($a) return kb_aff_pct($a); }
+  return kb_commission_pct();
+}
 // Commission a referred ticket earns: pct × site price (never monthly fees). 0 when voided / no referrer.
+// Commissions already earned are never reduced by a later rate change (locked comm_pct — Agreement §8).
 function kb_ticket_commission($t, $pct = null) {
   if (empty($t['ref_code']) || !empty($t['comm_void'])) return 0.0;
-  // Prefer the rate locked onto the ticket when it was paid — commissions already earned
-  // are never reduced by a later rate change (Affiliate Agreement §8). Fall back to the
-  // caller's rate (live rate, for not-yet-paid referrals) or the current setting.
   if (isset($t['comm_pct']) && $t['comm_pct'] !== null && $t['comm_pct'] !== '') $pct = (float)$t['comm_pct'];
-  elseif ($pct === null) $pct = kb_commission_pct();
+  elseif ($pct === null) $pct = kb_ticket_pct($t);
   return round((float)($t['value'] ?? 0) * $pct / 100, 2);
+}
+
+// ===================== Moderators (admins) + ratings =====================
+// The moderators are the owner + any extra-admin emails. kb_mods() returns them as account
+// rows when the email has an account (so it can be rated), flagged 'no_account' otherwise.
+function kb_mods() {
+  $emails = array_merge([kb_admin_email()], kb_extra_admins());
+  $out = []; $seen = [];
+  foreach ($emails as $e) {
+    $e = strtolower(trim($e));
+    if ($e === '' || isset($seen[$e])) continue;
+    $seen[$e] = 1;
+    $u = kb_aff_by_email($e);
+    if ($u) { $u['is_owner'] = ($e === kb_admin_email()); $out[] = $u; }
+    else    { $out[] = ['id'=>0, 'name'=>$e, 'email'=>$e, 'is_owner'=>($e === kb_admin_email()), 'no_account'=>true]; }
+  }
+  return $out;
+}
+// Add / remove an extra admin (moderator) by email. Stored even without an account yet,
+// so the grant takes effect the moment they sign up with that email.
+function kb_add_admin_email($email) {
+  $e = strtolower(trim($email));
+  if ($e === '' || !filter_var($e, FILTER_VALIDATE_EMAIL)) return false;
+  if ($e === kb_admin_email()) return true;
+  $list = kb_extra_admins();
+  if (!in_array($e, $list, true)) { $list[] = $e; kb_setting_set('extra_admins', implode(',', $list)); }
+  return true;
+}
+function kb_remove_admin_email($email) {
+  $e = strtolower(trim($email));
+  kb_setting_set('extra_admins', implode(',', array_values(array_filter(kb_extra_admins(), fn($x) => $x !== $e))));
+}
+// The moderator credited for a ticket: whoever posted the most recent admin reply, else the owner.
+function kb_ticket_mod_id($ticketId) {
+  try {
+    $st = kb_db()->prepare("SELECT mod_id FROM replies WHERE ticket_id=? AND who='admin' AND mod_id IS NOT NULL ORDER BY id DESC LIMIT 1");
+    $st->execute([$ticketId]);
+    $r = $st->fetch();
+    if ($r && !empty($r['mod_id'])) return (int)$r['mod_id'];
+  } catch (Exception $e) {}
+  $adm = kb_admin_user();
+  return $adm ? (int)$adm['id'] : 0;
+}
+// [count, average] of a moderator's ratings.
+function kb_mod_rating_stats($modId) {
+  if (!$modId) return [0, 0.0];
+  try {
+    $st = kb_db()->prepare("SELECT COUNT(*) c, AVG(stars) a FROM mod_ratings WHERE mod_id=?");
+    $st->execute([$modId]);
+    $r = $st->fetch();
+    return [(int)($r['c'] ?? 0), round((float)($r['a'] ?? 0), 2)];
+  } catch (Exception $e) { return [0, 0.0]; }
 }
 
 // Plans offered on the site. Form field "plan"; tickets.plan holds the key.

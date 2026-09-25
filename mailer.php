@@ -205,7 +205,7 @@ function kb_mail_content($kind, $v) {
         'blocks'  => [
           ['p', 'Your KB Sites account is ready. Use it to request your website, chat with us about your project and follow every step until it\'s live.'],
           ['btn', 'Go to your account', $site . '/account/'],
-          ['small', 'Know a business that needs a website? Join our Partner Program and earn ' . kb_mail_pct($pct) . ' of the site price for every client you refer who pays.'],
+          ['small', 'Based in Brazil? Join our Partner Program and earn from ~' . kb_mail_pct(kb_tier_pct('bronze')) . ' up to ~' . kb_mail_pct(kb_tier_pct('platina')) . ' of the site price — paid by Pix — for every client you refer who pays.'],
         ],
       ];
 
@@ -238,8 +238,8 @@ function kb_mail_content($kind, $v) {
         'blocks'  => array_values(array_filter([
           ['p', 'Welcome to the KB Sites Partner Program. Share your referral link with local businesses that need a website.'],
           $kv ? ['kv', $kv] : null,
-          ['p', 'You earn ' . kb_mail_pct($pct) . ' of the site price for every referred client who pays — that\'s ' . kb_mail_money(150 * $pct / 100) . ' on a $150 website.'],
-          ['small', 'Commissions are paid only after the client pays, and never include hosting or maintenance fees.'],
+          ['p', 'You start at ~' . kb_mail_pct(kb_tier_pct('bronze')) . ' of the site price and rank up as your referred clients pay — up to ~' . kb_mail_pct(kb_tier_pct('platina')) . ' at the top rank. Commissions are paid in Brazilian reais, by Pix.'],
+          ['small', 'The exact amount is approximate — it depends on the USD→BRL exchange rate on payout day. Commissions are paid only after the client pays, and never include hosting or maintenance fees.'],
           ['btn', 'Open your partner area', $partner],
         ])),
       ];
@@ -252,7 +252,7 @@ function kb_mail_content($kind, $v) {
         'blocks'  => [
           $hi,
           ['p', ($biz !== '' ? "$biz, a business you referred," : 'A business you referred') . ' just sent us a website request.'],
-          ['p', 'If they become a paying client, you\'ll earn ' . kb_mail_pct($pct) . ' of the site price. You can follow it in your partner area.'],
+          ['p', 'If they become a paying client, you\'ll earn a commission on the site price — paid in reais by Pix. You can follow it in your partner area.'],
           ['btn', 'Open your partner area', $partner],
         ],
       ];
@@ -266,8 +266,8 @@ function kb_mail_content($kind, $v) {
         'blocks'  => [
           $hi,
           ['p', 'Great news: ' . ($biz !== '' ? "$biz, a business you referred," : 'a business you referred') . ' just paid for their website.'],
-          ['kv', [['Your commission', $amt], ['Rate', kb_mail_pct($pct) . ' of the site price']]],
-          ['p', 'We\'ll send it to the payout details in your partner area and let you know when it\'s paid.'],
+          ['kv', [['Your commission', '~' . $amt], ['Rate', '~' . kb_mail_pct($pct) . ' of the site price']]],
+          ['p', 'We\'ll send it by Pix, in reais, to the details in your partner area and let you know when it\'s paid. The amount is approximate — it follows the USD→BRL rate on payout day.'],
           ['btn', 'View your earnings', $partner],
           ['small', 'Please keep your payout details up to date in your partner area.'],
         ],
@@ -284,7 +284,7 @@ function kb_mail_content($kind, $v) {
         'title'   => 'Commission paid',
         'blocks'  => [
           $hi,
-          ['p', 'We\'ve sent your commission. Thanks for partnering with KB Sites!'],
+          ['p', 'We\'ve sent your commission by Pix. Thanks for partnering with KB Sites!'],
           ['kv', $kv],
           ['small', 'Depending on your payout method, it may take a few days to show up.'],
           ['btn', 'View your earnings', $partner],
