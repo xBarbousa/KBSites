@@ -376,9 +376,9 @@ function kb_mail_render($kind, $vars) {
 
   $out  = "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
         . "<meta name=\"color-scheme\" content=\"light\"><meta name=\"supported-color-schemes\" content=\"light\"><title>" . $e($m['subject']) . "</title></head>\n"
-        . '<body style="margin:0;padding:0;background:#eceae5;">' . "\n"
-        . '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#eceae5;font-size:1px;line-height:1px;">' . $e($m['pre'] ?? '') . "</div>\n"
-        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eceae5" style="background:#eceae5;"><tr><td align="center" style="padding:30px 12px;">' . "\n"
+        . '<body style="margin:0;padding:0;background:#d8d5cf;">' . "\n"
+        . '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#d8d5cf;font-size:1px;line-height:1px;">' . $e($m['pre'] ?? '') . "</div>\n"
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#d8d5cf" style="background:#d8d5cf;"><tr><td align="center" style="padding:30px 12px;">' . "\n"
         . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">' . "\n"
         . '<tr><td align="center" style="padding:0 6px 20px;">' . $header . "</td></tr>\n"
         . '<tr><td bgcolor="#ffffff" style="background:#ffffff;border:1px solid #e7e3db;border-radius:14px;padding:32px 30px;box-shadow:0 1px 3px rgba(0,0,0,.04);">' . "\n"
