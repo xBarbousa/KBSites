@@ -66,7 +66,7 @@ function kb_mail_site() {
 function kb_mail_logo() {
   $v = kb_setting_get('mail_logo_url');
   if ($v !== null && trim((string)$v) !== '') return trim((string)$v);
-  return '';
+  return kb_mail_site() . '/fotos/kbsites-wordmark.png';
 }
 // Sending domain, derived from the request host like kb_mail() (sanitised).
 function kb_mail_host() {
