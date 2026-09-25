@@ -60,6 +60,13 @@ function kb_mail_site() {
   $s = (isset($GLOBALS['KB_SITE']) && $GLOBALS['KB_SITE']) ? (string)$GLOBALS['KB_SITE'] : 'https://kbsites.com.br';
   return rtrim($s, '/');
 }
+// Logo shown at the top of branded emails. Editable via the 'mail_logo_url' setting.
+// Tip: use a PNG for the widest email-client support (Outlook doesn't render WebP).
+function kb_mail_logo() {
+  $v = kb_setting_get('mail_logo_url');
+  if ($v !== null && trim((string)$v) !== '') return trim((string)$v);
+  return kb_mail_site() . '/fotos/kbsites-wordmark.webp';
+}
 // Sending domain, derived from the request host like kb_mail() (sanitised).
 function kb_mail_host() {
   $h = strtolower(preg_replace('/^www\./i', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
@@ -320,29 +327,29 @@ function kb_mail_render($kind, $vars) {
   foreach ($m['blocks'] as $b) {
     switch ($b[0]) {
       case 'p':
-        $html .= '<p style="margin:0 0 14px;' . $F . 'font-size:15px;line-height:1.65;color:#f5efe3;">' . nl2br($e($b[1])) . "</p>\n";
+        $html .= '<p style="margin:0 0 14px;' . $F . 'font-size:15px;line-height:1.65;color:#454545;">' . nl2br($e($b[1])) . "</p>\n";
         $text .= $b[1] . "\n\n";
         break;
       case 'small':
-        $html .= '<p style="margin:16px 0 0;' . $F . 'font-size:13px;line-height:1.6;color:#a89c86;">' . nl2br($e($b[1])) . "</p>\n";
+        $html .= '<p style="margin:16px 0 0;' . $F . 'font-size:13px;line-height:1.6;color:#8a8a8a;">' . nl2br($e($b[1])) . "</p>\n";
         $text .= $b[1] . "\n\n";
         break;
       case 'quote':
         $html .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;"><tr>'
-               . '<td style="background:#080706;border-left:3px solid #d9b45a;border-radius:6px;padding:14px 16px;' . $F . 'font-size:15px;line-height:1.65;color:#f5efe3;">'
+               . '<td style="background:#f6f4ef;border-left:3px solid #d9b45a;border-radius:6px;padding:14px 16px;' . $F . 'font-size:15px;line-height:1.65;color:#454545;">'
                . nl2br($e($b[1])) . "</td></tr></table>\n";
         foreach (preg_split('/\r\n|\r|\n/', (string)$b[1]) as $ln) $text .= '> ' . $ln . "\n";
         $text .= "\n";
         break;
       case 'kv':
-        $html .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;background:#080706;border:1px solid #2c2417;border-radius:10px;">';
+        $html .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;background:#faf8f4;border:1px solid #eeeae2;border-radius:10px;">';
         foreach ($b[1] as $i => $row) {
-          $bt  = $i ? 'border-top:1px solid #2c2417;' : '';
+          $bt  = $i ? 'border-top:1px solid #eeeae2;' : '';
           $val = (!empty($row[2]) && kb_mail_url_ok($row[2]))
-               ? '<a href="' . $e($row[2]) . '" style="color:#f4dc93;text-decoration:underline;word-break:break-all;">' . $e($row[1]) . '</a>'
+               ? '<a href="' . $e($row[2]) . '" style="color:#a9791f;text-decoration:underline;word-break:break-all;">' . $e($row[1]) . '</a>'
                : $e($row[1]);
-          $html .= '<tr><td style="' . $bt . 'padding:11px 14px;' . $F . 'font-size:13px;color:#a89c86;width:34%;vertical-align:top;">' . $e($row[0]) . '</td>'
-                 . '<td style="' . $bt . 'padding:11px 14px;' . $F . 'font-size:14px;color:#f5efe3;font-weight:bold;vertical-align:top;">' . $val . '</td></tr>';
+          $html .= '<tr><td style="' . $bt . 'padding:11px 14px;' . $F . 'font-size:13px;color:#8a8a8a;width:34%;vertical-align:top;">' . $e($row[0]) . '</td>'
+                 . '<td style="' . $bt . 'padding:11px 14px;' . $F . 'font-size:14px;color:#222222;font-weight:bold;vertical-align:top;">' . $val . '</td></tr>';
           $text .= $row[0] . ': ' . $row[1] . "\n";
         }
         $html .= "</table>\n";
@@ -359,24 +366,28 @@ function kb_mail_render($kind, $vars) {
     }
   }
   $site = kb_mail_site();
+  $logo = kb_mail_logo();
   $foot1 = 'KB Sites · Custom websites for local businesses · kbsites.com.br';
   $foot2 = 'You\'re receiving this because you have an account at kbsites.com.br';
 
+  $header = ($logo !== '')
+    ? '<a href="' . $e($site) . '" style="text-decoration:none;"><img src="' . $e($logo) . '" alt="KB Sites" height="34" style="height:34px;width:auto;border:0;outline:none;text-decoration:none;display:inline-block;"></a>'
+    : '<a href="' . $e($site) . '" style="font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:bold;letter-spacing:5px;color:#b5872f;text-decoration:none;">KB SITES</a>';
+
   $out  = "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-        . "<meta name=\"color-scheme\" content=\"dark\"><meta name=\"supported-color-schemes\" content=\"dark\"><title>" . $e($m['subject']) . "</title></head>\n"
-        . '<body style="margin:0;padding:0;background:#080706;">' . "\n"
-        . '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#080706;font-size:1px;line-height:1px;">' . $e($m['pre'] ?? '') . "</div>\n"
-        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#080706" style="background:#080706;"><tr><td align="center" style="padding:28px 12px;">' . "\n"
+        . "<meta name=\"color-scheme\" content=\"light\"><meta name=\"supported-color-schemes\" content=\"light\"><title>" . $e($m['subject']) . "</title></head>\n"
+        . '<body style="margin:0;padding:0;background:#eceae5;">' . "\n"
+        . '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#eceae5;font-size:1px;line-height:1px;">' . $e($m['pre'] ?? '') . "</div>\n"
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eceae5" style="background:#eceae5;"><tr><td align="center" style="padding:30px 12px;">' . "\n"
         . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">' . "\n"
-        . '<tr><td style="padding:0 6px 18px;font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:bold;letter-spacing:5px;color:#d9b45a;">'
-        . '<a href="' . $e($site) . '" style="color:#d9b45a;text-decoration:none;">KB SITES</a></td></tr>' . "\n"
-        . '<tr><td bgcolor="#141109" style="background:#141109;border:1px solid #2c2417;border-radius:14px;padding:30px 28px;">' . "\n"
+        . '<tr><td align="center" style="padding:0 6px 20px;">' . $header . "</td></tr>\n"
+        . '<tr><td bgcolor="#ffffff" style="background:#ffffff;border:1px solid #e7e3db;border-radius:14px;padding:32px 30px;box-shadow:0 1px 3px rgba(0,0,0,.04);">' . "\n"
         . '<div style="width:56px;height:3px;border-radius:3px;background:#d9b45a;background-image:linear-gradient(115deg,#f4dc93,#d9b45a 45%,#b5872f);margin:0 0 20px;line-height:3px;font-size:1px;">&nbsp;</div>' . "\n"
-        . '<h1 style="margin:0 0 18px;font-family:Georgia,\'Times New Roman\',serif;font-size:25px;line-height:1.3;font-weight:bold;color:#f4dc93;">' . $e($m['title']) . "</h1>\n"
+        . '<h1 style="margin:0 0 18px;font-family:Georgia,\'Times New Roman\',serif;font-size:24px;line-height:1.3;font-weight:bold;color:#222222;">' . $e($m['title']) . "</h1>\n"
         . $html
         . "</td></tr>\n"
-        . '<tr><td align="center" style="padding:20px 10px 0;' . $F . 'font-size:12px;line-height:1.7;color:#a89c86;">'
-        . 'KB Sites · Custom websites for local businesses · <a href="' . $e($site) . '" style="color:#d9b45a;text-decoration:none;">kbsites.com.br</a><br>'
+        . '<tr><td align="center" style="padding:22px 10px 0;' . $F . 'font-size:12px;line-height:1.7;color:#9a938a;">'
+        . 'KB Sites · Custom websites for local businesses · <a href="' . $e($site) . '" style="color:#a9791f;text-decoration:none;">kbsites.com.br</a><br>'
         . $e($foot2) . "</td></tr>\n"
         . "</table>\n</td></tr></table>\n</body></html>";
 
