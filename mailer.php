@@ -60,12 +60,13 @@ function kb_mail_site() {
   $s = (isset($GLOBALS['KB_SITE']) && $GLOBALS['KB_SITE']) ? (string)$GLOBALS['KB_SITE'] : 'https://kbsites.com.br';
   return rtrim($s, '/');
 }
-// Logo shown at the top of branded emails. Editable via the 'mail_logo_url' setting.
-// Tip: use a PNG for the widest email-client support (Outlook doesn't render WebP).
+// Logo shown at the top of branded emails. Empty by default → a clean gold text wordmark
+// that renders identically in every email client. Set the 'mail_logo_url' setting to a
+// PNG (transparent background, NOT WebP — Gmail/Outlook render WebP poorly) to use an image.
 function kb_mail_logo() {
   $v = kb_setting_get('mail_logo_url');
   if ($v !== null && trim((string)$v) !== '') return trim((string)$v);
-  return kb_mail_site() . '/fotos/kbsites-wordmark.webp';
+  return '';
 }
 // Sending domain, derived from the request host like kb_mail() (sanitised).
 function kb_mail_host() {
@@ -368,11 +369,11 @@ function kb_mail_render($kind, $vars) {
   $site = kb_mail_site();
   $logo = kb_mail_logo();
   $foot1 = 'KB Sites · Sites personalizados para empresas locais · kbsites.com.br';
-  $foot2 = 'Você está recebendo esta mensagem porque possui uma conta em kbsites.com.br';
+  $foot2 = 'Você está recebendo esta mensagem porque possui uma conta na KB Sites.';
 
   $header = ($logo !== '')
     ? '<a href="' . $e($site) . '" style="text-decoration:none;"><img src="' . $e($logo) . '" alt="KB Sites" height="34" style="height:34px;width:auto;border:0;outline:none;text-decoration:none;display:inline-block;"></a>'
-    : '<a href="' . $e($site) . '" style="font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:bold;letter-spacing:5px;color:#b5872f;text-decoration:none;">KB SITES</a>';
+    : '<a href="' . $e($site) . '" style="font-family:Georgia,\'Times New Roman\',serif;font-size:24px;font-weight:bold;letter-spacing:6px;color:#f4dc93;text-decoration:none;">KB SITES</a>';
 
   $out  = "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
         . "<meta name=\"color-scheme\" content=\"light\"><meta name=\"supported-color-schemes\" content=\"light\"><title>" . $e($m['subject']) . "</title></head>\n"
