@@ -1,0 +1,49 @@
+# KB Sites
+
+> KB Sites is an independent web design studio that builds custom, mobile-first websites for local service businesses across the U.S., such as auto shops, landscapers, plumbers and contractors. Every website is a custom build from $150 (USD) one-time, and a full preview is usually ready in 3–5 days. Clients work directly with the person who designs and builds the site. Two hosting/maintenance plans are optional. Free quotes: https://kbsites.com.br/#contact
+
+KB Sites is operated by Kauã Barbosa dos Santos. The studio is based in Brazil and serves clients in other countries, including the United States. The website is in English, and all prices are in U.S. dollars. Motto: "Your company, in our light."
+
+Key facts, taken from the site's own pages:
+
+- **What it does:** "We build websites that make the phone ring." The homepage says each site is "tailor-made for your business", with the client's services, colors and actual photos, and "no ready-made templates". There are no account managers and no waiting in line.
+- **Plans and pricing:** the website build is a $150 one-time fee on every plan; the difference is hosting and maintenance.
+  - **Website — $150 one-time.** The custom site, delivered as ready-to-upload files. Hosting and maintenance are not included. Two rounds of revisions.
+  - **Website + Hosting — $150 + $10/month.** KB Sites keeps the site online on KB Sites hosting, SSL included. Two rounds of revisions.
+  - **Website + Care — $150 + $20/month (most popular).** Hosting plus ongoing maintenance — small edits whenever needed (text, photos, hours, prices). Bigger changes (new pages, redesigns) are quoted separately. Two rounds of revisions.
+- **Included on every plan:** custom, mobile-responsive design; the client's services, photos and contact info; click-to-call and get-directions; fast loading and a Google-friendly structure; two rounds of revisions; a site delivered ready to go live. Prices do not include taxes or the client's own domain.
+- **Monthly plans:** billed monthly, cancel anytime, effective at the end of the paid month.
+- **Custom domain:** the client buys and owns their own domain (about $10–15/year at any registrar). KB Sites helps connect it for free but never buys a domain on the client's behalf.
+- **Account required:** to send a request the client first creates a free account (email + a 6-digit email code, or "Continue with Google"). This lets the client follow the whole conversation and get email updates.
+- **Process:** (1) the client creates an account and describes the business, sends details and photos, and picks a plan; (2) KB Sites designs a full preview, usually in 3–5 days; (3) two rounds of revisions; (4) the client approves, pays, and the site goes online.
+- **Timeline:** a typical build takes about 3–5 days after KB Sites receives everything it needs. Timelines are estimates, not guarantees.
+- **Payment:** through PayPal. Unless agreed otherwise, the build fee is due when the client approves the website. Final files and publication come only after full payment. KB Sites does not collect or store card or bank details.
+- **Ownership:** after full payment, the client owns the custom design, the text written for the project and the materials they provided. KB Sites keeps its reusable code, components, templates and tools.
+- **Refunds:** if the client cancels before work begins, the amount paid for that build is refundable. Once the design has been delivered for review, the build fee is generally non-refundable.
+- **No promised results:** KB Sites does not guarantee any traffic, search ranking or sales. The homepage currently shows no case studies, testimonials, reviews, ratings or client counts.
+- **Contact:** the quote form in the Contact section, https://kbsites.com.br/#contact. It asks for name, business name, email, the project idea, chosen plan, current website, Google Business profile and photos (up to 10, or a link). A free account is required, and replies usually come the same day. The site lists no phone number and no street address.
+- **Partner Program:** joining is free with a KB Sites account ("Log in" on the homepage) and requires accepting the Affiliate Agreement. A partner earns 20% of the website build price ($150) for each client referred through the partner's referral link who pays KB Sites in full. The monthly hosting and maintenance fees do not earn commission. Self-referrals are not allowed.
+
+## Site
+
+- [KB Sites homepage](https://kbsites.com.br/): The whole offer on one page: about, process, pricing and the quote form.
+- [Full site text in Markdown](https://kbsites.com.br/llms-full.txt): The homepage, Terms of Service and Privacy Policy as clean Markdown, the best single source for LLMs.
+
+## Services and pricing
+
+- [Pricing](https://kbsites.com.br/#pricing): Three plans — Website ($150 one-time), Website + Hosting ($150 + $10/month) and Website + Care ($150 + $20/month). Payment through PayPal. The client's own domain is not included.
+- [How it works](https://kbsites.com.br/#process): Four steps from first message to live site, with a preview usually in 3–5 days.
+- [About KB Sites](https://kbsites.com.br/#about): An independent studio where you deal directly with the person designing and developing your site.
+- [Contact and free quote](https://kbsites.com.br/#contact): The quote request form and a free, no-commitment quote (a free account is required to send it).
+
+## Policies
+
+- [Terms of Service](https://kbsites.com.br/terms.html): Plans, pricing and payment, timelines, revisions, ownership, hosting, warranties, refunds. Governed by the laws of Brazil. Last updated September 23, 2026.
+- [Privacy Policy](https://kbsites.com.br/privacy.html): What data is collected and why, who it is shared with (email/hosting provider, PayPal, Google Fonts), the transactional emails we send, cookies (including the sign-in and anti-fraud cookies), and LGPD, GDPR and CCPA rights. No ad or third-party analytics trackers. Last updated September 23, 2026.
+
+## Optional
+
+- [Logo](https://kbsites.com.br/fotos/logo.jpg): Square KB Sites logo, 360×360 JPEG.
+- [Hero image](https://kbsites.com.br/fotos/hero.jpg): Homepage illustration of a website on a laptop and a phone, 1024×1024 JPEG.
+- [Sitemap](https://kbsites.com.br/sitemap.xml): Canonical URLs of the public pages.
+- [Crawler policy](https://kbsites.com.br/robots.txt): Which areas crawlers and AI agents may fetch.

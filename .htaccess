@@ -1,0 +1,11 @@
+RewriteEngine On
+RewriteBase /account/
+
+# real files/dirs (index.php, google.php, whoami.php, avatars/…) are served as-is
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^messages/([A-Za-z0-9]+)/?$ index.php?view=messages&t=$1 [L,QSA]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([a-z]+)/?$ index.php?view=$1 [L,QSA]

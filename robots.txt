@@ -1,0 +1,112 @@
+# robots.txt for https://kbsites.com.br/  (RFC 9309)
+# KB Sites - independent web design studio for U.S. local service businesses.
+# Last reviewed: 2026-09-23
+#
+# AI assistants and LLM tools: a curated summary of this site is at
+#   https://kbsites.com.br/llms.txt
+# and the full public text in Markdown is at
+#   https://kbsites.com.br/llms-full.txt
+#
+# POLICY
+# 1. Public pages (/, /terms.html, /privacy.html) and the files they need to
+#    render (/fotos/) are open to every search engine and every AI crawler,
+#    including AI training crawlers.
+# 2. Form handlers, session and sign-in endpoints, user uploads and the admin
+#    area are never crawled. Every group below disallows them.
+# 3. The account portal (/account/, linked as "Log in") and the old /partners/
+#    links that redirect into it must stay OUT OF SEARCH RESULTS. Every
+#    /account/ page carries <meta name="robots" content="noindex,nofollow">.
+#    Googlebot, Bingbot and Applebot honor noindex, so they may fetch /account/
+#    and see it (a Disallow would hide the noindex and could leave the bare URL
+#    in the index). Every other crawler is disallowed from /account/ and
+#    /partners/.
+# 4. Prospect previews (/clientes/) show real businesses that are NOT clients
+#    yet. They must never be crawled or indexed, so EVERY group, search engines
+#    included, disallows /clientes/. The preview pages do not carry a noindex
+#    tag of their own; the server should also send
+#    "X-Robots-Tag: noindex, nofollow, noarchive, noimageindex" for /clientes/.
+#    If a /clientes/ URL ever shows up in Google or Bing, use the Search Console
+#    / Bing Webmaster removal tool (a Disallow alone does not remove it).
+# 5. robots.txt is not access control. Private data is protected on the server.
+#
+# MAINTENANCE: a crawler that matches a named group IGNORES the "*" group
+# (RFC 9309, section 2.2.1). Each group repeats the full list of rules.
+# When you add or remove a rule, change it in EVERY group.
+
+# ---------------------------------------------------------------------------
+# Group 1 - AI search, assistant and training crawlers: all welcome on the
+# public pages. It is not documented whether these crawlers honor noindex, so
+# robots.txt also keeps them out of the account portal and prospect previews.
+# User-triggered fetchers (ChatGPT-User, Perplexity-User, Amzn-User,
+# meta-externalfetcher) may ignore robots.txt.
+# This group comes first on purpose. Some older parsers match user-agent
+# names as substrings and use the first group that matches. Listing
+# Applebot-Extended before Applebot keeps the two apart.
+# ---------------------------------------------------------------------------
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: meta-externalagent
+User-agent: meta-externalfetcher
+User-agent: meta-webindexer
+User-agent: Amazonbot
+User-agent: Amzn-SearchBot
+User-agent: Amzn-User
+User-agent: DuckAssistBot
+User-agent: MistralAI-User
+User-agent: MistralAI-Index
+User-agent: MistralAI-Training
+User-agent: CCBot
+Disallow: /ticket/
+Disallow: /contact.php
+Disallow: /submit.php
+Disallow: /account/whoami.php
+Disallow: /account/google.php
+Disallow: /account/avatars/
+Disallow: /partners/google.php
+Disallow: /account/
+Disallow: /partners/
+Disallow: /clientes/
+
+# ---------------------------------------------------------------------------
+# Group 2 - Search engines that honor noindex. They may fetch /account/ and
+# /partners/ (see policy 3) but never /clientes/ (see policy 4).
+# Google's crawlers that also accept the "Googlebot" token (Googlebot-Image,
+# Googlebot-Video, Googlebot-News, Google-InspectionTool,
+# Google-CloudVertexBot) follow this group too.
+# ---------------------------------------------------------------------------
+User-agent: Googlebot
+User-agent: Bingbot
+User-agent: Applebot
+Disallow: /ticket/
+Disallow: /contact.php
+Disallow: /submit.php
+Disallow: /account/whoami.php
+Disallow: /account/google.php
+Disallow: /account/avatars/
+Disallow: /partners/google.php
+Disallow: /clientes/
+
+# ---------------------------------------------------------------------------
+# Group 3 - Every other crawler. Same rules as group 1.
+# ---------------------------------------------------------------------------
+User-agent: *
+Disallow: /ticket/
+Disallow: /contact.php
+Disallow: /submit.php
+Disallow: /account/whoami.php
+Disallow: /account/google.php
+Disallow: /account/avatars/
+Disallow: /partners/google.php
+Disallow: /account/
+Disallow: /partners/
+Disallow: /clientes/
+
+Sitemap: https://kbsites.com.br/sitemap.xml

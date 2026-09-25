@@ -1,0 +1,290 @@
+# KB Sites: full site content
+
+> The complete public text of https://kbsites.com.br/ in clean Markdown, for LLMs and AI assistants. It covers the homepage, the Terms of Service and the Privacy Policy, plus a short summary of the Partner Program. It was compiled on 2026-09-23 from the live pages. The short index is at https://kbsites.com.br/llms.txt.
+
+KB Sites is an independent web design studio that builds custom, mobile-first websites for U.S. local service businesses, with custom website builds from $150 (USD) one-time. It is operated by Kauã Barbosa dos Santos and based in Brazil. To get a quote or ask a question, use the contact form at https://kbsites.com.br/#contact. This copy leaves out email addresses on purpose.
+
+---
+
+## Homepage
+
+- Source: https://kbsites.com.br/
+- Description: KB Sites — an independent studio building custom, mobile-first websites for U.S. local businesses. Custom sites from $150, with optional hosting and care plans.
+
+The homepage is a single page with these sections: About, How we'll work together (process), Pricing and Contact. The navigation shows About, Pricing, Contact, Log in and Get started.
+
+### Hero
+
+Available for new projects
+
+**We build websites that make the phone ring.**
+
+Custom, mobile-first sites for local service businesses across the U.S. — auto shops, landscapers, plumbers, contractors. You work directly with the person who designs and builds it. No agency, no monthly lock-in.
+
+- **from $150**
+- **3–5 days** to build
+- yours to keep
+
+Buttons: "Get started →" (goes to Contact) and "View pricing →" (goes to Pricing).
+
+### About
+
+**Web Design Agency**
+
+KB Sites is an independent web studio that creates custom websites for local service-based businesses worldwide. You deal directly with the person designing and developing your site — **no account managers, no waiting in line, and no monthly lock-in contracts**. Websites delivered in days, not months.
+
+Each site is tailor-made for your business — featuring your services, your colors, and your actual photos; no ready-made templates. We keep pricing clear and fair because we prefer doing excellent work for local entrepreneurs over inflating the bill.
+
+### How we'll work together
+
+**From first message to live site in days.**
+
+1. **Tell me about your business.** Send your details, photos, and what you want. Or just say "I need a site" — I'll guide you.
+2. **I design your site.** You get a full preview of your new website, built around your business — usually in 3–5 days.
+3. **We fine-tune it.** Want changes? Two rounds of revisions are included until it feels right.
+4. **Go live.** Approve, pay, and your site goes online — ready to bring in customers.
+
+### Simple pricing
+
+**Three plans. Same $150 build.**
+
+Every plan is the same custom site for a one-time $150 build fee; the difference is whether KB Sites also hosts and maintains it. All plans include two rounds of revisions. The client buys and owns their own domain (about $10–15/year); KB Sites helps connect it for free.
+
+Included on every plan:
+
+- Custom, mobile-responsive design
+- Your services, photos, and contact info
+- Click-to-call & get-directions built in
+- Fast loading, Google-friendly structure
+- Two rounds of revisions
+- Delivered ready to go live
+
+| Plan | Price | What it adds |
+|---|---|---|
+| Website | **$150 one-time** | The custom site, delivered as ready-to-upload files. Hosting & maintenance not included. |
+| Website + Hosting | **$150 + $10 / month** | KB Sites keeps the site online on KB Sites hosting, SSL included. |
+| Website + Care (most popular) | **$150 + $20 / month** | Hosting plus ongoing maintenance — small edits whenever needed; bigger changes quoted separately. |
+
+Monthly plans are billed monthly and cancel anytime. Secure payment via PayPal.
+
+### Get in touch
+
+**Let's build your website.**
+
+Tell me a bit about your business and I'll send you a free, no-pressure quote. I usually reply the same day.
+
+- **Message me.** Fastest way to reach me — the on-site chat and the request form both go straight to me.
+- **Free quote, no commitment.** Ask anything before you decide.
+- **Payment via PayPal.** Simple and secure, only when you approve.
+
+The quote request form has these fields:
+
+- Your name (required)
+- Business name (required)
+- Email (required)
+- Your idea: what you need and how you'd like it
+- Current website (if any)
+- Your Google Business profile (a link to the business on Google Maps)
+- Photos you'd like on the site (upload up to 10 photos, or paste a link)
+- A checkbox to agree to the Terms of Service and Privacy Policy (required)
+
+Submit button: "Send my request →". A free account is required to send a request, so the client can follow the whole conversation and get email updates. Replies usually come the same day.
+
+### Other page elements
+
+- **"Message us" chat button:** "Send a message and we'll reply to your email." It asks for a name, an email and a message.
+- **Cookie notice:** "We use cookies to remember referrals and keep the site working." It links to the Privacy Policy.
+- **Log in:** opens the KB Sites account portal. One account covers everything: messaging KB Sites about a project, or joining the Partner Program later. Sign-up uses email and password (confirmed with a 6-digit email code) or "Continue with Google".
+
+### Footer
+
+- KB Sites. *Your company, in our light.*
+- Independent web studio for local businesses
+- Partner Program — earn 20% per referral →
+- © 2026 KB Sites · Terms · Privacy
+
+---
+
+## Partner Program (summary)
+
+- Source: summary of the Affiliate Agreement shown to signed-in users in the KB Sites account portal. The homepage footer link "Partner Program — earn 20% per referral →" opens the Partner Program page in that portal, which requires a KB Sites account.
+
+Refer a business to KB Sites and earn 20% of every website sale — paid after the client pays. Joining is free. Key terms:
+
+- **Commission:** 20% of the website project price for each referred client who pays KB Sites for a website. For example, a $150 site pays the partner $30. The optional monthly maintenance fee does not earn commission.
+- **Tracking:** each partner gets a referral link of the form `https://kbsites.com.br/?ref=CODE`. A cookie keeps the code for 30 days, and the referral is credited if the visitor contacts KB Sites and becomes a paying client within that window. A client who was already in contact with KB Sites, or who does not carry the code when they reach KB Sites, may not be credited.
+- **Payment:** a commission becomes payable only after the referred client has paid KB Sites in full. It is sent to the partner's payout method (for example PayPal) within a reasonable time, normally up to 15 days. Refunds, cancellations and chargebacks reverse the commission.
+- **Changes:** KB Sites may change the commission rate or the terms going forward. Changes do not reduce commissions already earned on clients who have paid.
+- **Rules:** no spam or unsolicited bulk email. No paid ads that bid on the KB Sites brand name. No impersonating KB Sites and no false claims. Partners must disclose that they earn a commission where the law requires it (for example U.S. FTC rules). Self-referrals are not allowed.
+- Partners are independent participants, not employees or agents of KB Sites. Earnings are not guaranteed. The agreement is governed by the laws of Brazil.
+
+---
+
+## Terms of Service
+
+- Source: https://kbsites.com.br/terms.html
+- Description: The terms that govern the design, delivery, payment and use of websites built by KB Sites.
+- Last updated: September 23, 2026
+
+These Terms are a plain-language agreement between you and KB Sites. Please read them before ordering a website or making a payment. By clicking "I agree" at checkout, or by using our services, you accept these Terms.
+
+### 1. Who we are
+
+"KB Sites", "we", "us" or "our" refers to the independent web design studio operated by Kauã Barbosa dos Santos, based in Brazil, providing website design and development services to local businesses. "You", "your" or "Client" refers to the person or business that requests, orders, or uses our services. Contact: see https://kbsites.com.br/#contact. (The email address in this section is left out of this copy.)
+
+### 2. Our services
+
+We design and build custom websites for local service businesses. The specific work, features, number of pages, and deliverables for your project are what we agree with you in writing (by email or message) before the project starts. Anything not expressly agreed is out of scope. KB Sites acts as an **independent contractor**; nothing in these Terms creates a partnership, joint venture, employment, agency or fiduciary relationship between us.
+
+### 3. Plans, pricing & payment
+
+- Every plan includes the same custom website build for a **one-time USD $150**; scopes larger than the agreed one are quoted separately in writing.
+- **Website** — $150 one-time, delivered as ready-to-upload files; no hosting or maintenance. **Website + Hosting** — $150 + **$10/month**, KB Sites keeps the site online with SSL. **Website + Care** — $150 + **$20/month**, hosting plus ongoing small edits (bigger work quoted separately). Every plan includes two rounds of revisions.
+- Monthly fees are billed monthly starting when the site is first published on KB Sites hosting, and cancel anytime, effective at the end of the paid month. The client buys and owns their own domain (~$10–15/year); KB Sites helps connect it for free but never buys a domain for the client.
+- Payment is made **via PayPal**. Unless we agree otherwise (for example a deposit to start), the full fee is due upon your approval of the website. **You receive the final files and/or publication only after full payment has been received** — source files are not handed over and the site is not published before then.
+- Prices are in U.S. dollars and do not include any taxes, fees, hosting or domain costs that may apply to you.
+
+### 4. Project process & timelines
+
+A typical build takes about 3–5 days after we receive everything we need from you, but timelines are estimates, not guarantees, and depend on your timely responses and materials. Delays caused by missing content, feedback or approvals are not our responsibility.
+
+If you do not provide required content, feedback or approval within **14 days**, we may place the project on hold until you respond, and extended inactivity may require a revised delivery schedule.
+
+### 5. Revisions
+
+Your build includes **two rounds of revisions** to get the design right. Additional revisions, new features, or changes to already-approved work may be quoted and billed separately.
+
+### 6. Your responsibilities
+
+- Provide accurate, complete and lawful information and materials (text, photos, logos, business details, links).
+- You confirm that you **own or have the right to use** everything you send us (including all photos, logos and content), and that it does not infringe anyone's rights.
+- Respond to questions and approvals within a reasonable time.
+- You are responsible for the accuracy of the business information published on your site (such as services, hours, prices and contact details).
+
+### 7. Third-party content & indemnity
+
+You are solely responsible for any content you provide. You agree to hold KB Sites harmless from, and indemnify us against, any claim, loss or expense arising from content you supplied or from your use of the website, including claims of copyright, trademark, privacy or defamation.
+
+### 8. Ownership & portfolio rights
+
+- Upon **full payment**, you own the parts we create specifically for you: the **custom design produced for your project, the text written specifically for it, and the materials you provided**.
+- KB Sites keeps ownership of everything reusable that is not specific to you — including **reusable code, components, libraries, frameworks, templates, tools, methods and know-how, and any pre-existing elements**. These are used across many projects; you receive a non-exclusive, non-transferable right to use them as part of your site, but you do not acquire ownership of our underlying system.
+- We may **display the work we create in our portfolio and case studies** (including screenshots and a link), and reference your business name, unless you ask us in writing not to. Concept redesigns we create before any agreement are our own work and are shown as unaffiliated concepts.
+
+### 9. Hosting, domains & maintenance
+
+Unless we expressly agree otherwise, you are responsible for your own hosting and domain registration and their costs, and — wherever possible — hosting and the domain should be registered in **your own account and name**. If you subscribe to a maintenance plan, it covers only the tasks described at sign-up; it does not include redesigns, new pages or new features unless agreed.
+
+### 10. Warranties & disclaimer
+
+We deliver our work with reasonable skill and care. Beyond that, the services and website are provided **"as is"**. We do not warrant any specific business result, amount of traffic, search-engine ranking, sales, or that the site will be error-free or uninterrupted. Third-party services (such as PayPal, hosting, fonts or maps) are governed by their own terms and are outside our control.
+
+### 11. Limitation of liability
+
+To the fullest extent permitted by law, KB Sites will not be liable for any indirect, incidental, or consequential damages, or for lost profits or data. Our total liability for any claim relating to a project is limited to the amount you actually paid us for that project.
+
+### 12. Refunds & cancellation
+
+Because each site is custom work, once the design has been delivered for your review, the build fee is generally non-refundable. If you cancel before work begins, any amount paid for that build is refundable. Maintenance can be cancelled at any time and stops at the end of the paid month. Nothing in this section removes any mandatory refund or cancellation rights you may have under consumer-protection law applicable to online purchases.
+
+### 13. Termination
+
+Either party may end a project by written notice if the other materially breaches these Terms and does not fix it within a reasonable time. Work completed up to termination remains payable.
+
+### 14. Confidentiality
+
+We keep non-public information you share with us confidential and use it only to deliver your project, except where disclosure is required by law.
+
+### 15. Changes to these Terms
+
+We may update these Terms from time to time. The version in force is the one published on this page at the time you order. Material changes will be reflected by the "Last updated" date above.
+
+### 16. Governing law
+
+These Terms are governed by the laws of Brazil, where KB Sites operates, without regard to conflict-of-law rules. Where mandatory consumer-protection laws of your own country apply, nothing here limits rights you cannot waive under those laws.
+
+### 17. Contact
+
+Questions about these Terms? Use the contact form at https://kbsites.com.br/#contact. (The email address in this section is left out of this copy.)
+
+---
+
+## Privacy Policy
+
+- Source: https://kbsites.com.br/privacy.html
+- Description: What information KB Sites collects, how it is used, who it is shared with, and your rights.
+- Last updated: September 23, 2026
+
+This policy explains what personal information KB Sites collects when you contact us or order a website, how we use it, who we share it with, and the rights you have.
+
+### 1. Who is responsible
+
+**Data Controller:** Kauã Barbosa dos Santos, operating as KB Sites — an independent web design studio based in Brazil — is responsible for the personal information described here. The published policy names an email address for any privacy question or request, and that address is also the channel for communication with data subjects. It is left out of this copy. Reach KB Sites through https://kbsites.com.br/#contact.
+
+### 2. Information we collect
+
+- **Information you give us** through our contact/order form or by email: your name, business name, email address, your message, and any project materials or links you choose to send (such as your current website, your Google Business profile, photos or references).
+- **Payment information:** payments are handled by **PayPal**. We do not collect or store your card or bank details — PayPal does, under its own privacy policy.
+- **Basic technical data:** like most websites, our host may keep standard server logs (e.g. IP address, browser type) for security and operation.
+
+### 3. How we use your information
+
+- To reply to you, prepare a quote, and design and deliver your website.
+- To communicate about your project, invoices and support.
+- To keep records and comply with legal obligations.
+
+We do **not** sell your personal information, and we do not send marketing emails unless you ask us to.
+
+### 4. Legal basis
+
+Where laws such as the Brazilian LGPD or the EU/UK GDPR apply, we process your data to take steps at your request and to perform our contract with you, to comply with legal obligations, and based on our legitimate interest in running the studio and answering enquiries. We do **not** rely on consent for most of this processing. Where we do rely on your consent for a specific purpose, you can withdraw it at any time, without affecting processing already carried out.
+
+### 5. Who we share it with
+
+We share the minimum necessary with service providers that help us operate, each under their own terms:
+
+- **Our email & hosting provider** — when you submit a form, the information is saved on our own hosting and emailed to our inbox so we can reply.
+- **PayPal** — processes payments under its own privacy policy.
+- **Our hosting provider** — stores and serves the website and may keep standard server logs.
+- **Google Fonts** — serves the fonts; when a page loads, Google may receive your IP address as part of delivering the fonts.
+
+Some of these providers are located outside your country, so your information may be processed abroad (see "International transfers" below). We may also disclose information if required by law. We do not otherwise share your data with third parties for their own purposes.
+
+### 6. Cookies & local storage
+
+We use a small number of cookies and browser storage items, and **no advertising or third-party analytics trackers**:
+
+- **Referral cookie** (`kb_ref`) — if you arrive through a partner's referral link, we store that partner's code for up to 30 days so the referral can be credited if you become a client. It contains only the partner code, not personal data.
+- **Sign-in cookies** — a session cookie and, if you choose to stay signed in, a `kb_remember` cookie keep you logged in to your account.
+- **Security / anti-fraud cookie** (`kb_dev`) — a first-party identifier that helps secure accounts and detect affiliate fraud (such as self-referrals). We also record IP addresses for the same purpose.
+- **Local storage** — we remember that you dismissed the cookie notice, your referral code, and any unsent request draft, on your own device.
+
+External resources we load (Google Fonts) and services you actively use (such as PayPal) are governed by their own policies and may set their own cookies when you interact with them.
+
+### 7. How long we keep it
+
+We keep enquiry and project information for as long as needed to provide our services and to meet legal, accounting and record-keeping requirements, and then delete or anonymise it. You can ask us to delete your data sooner (see below).
+
+### 8. Your rights
+
+Depending on applicable law (for example the LGPD, GDPR, or U.S. state laws such as the CCPA), you may have rights including: access; confirmation that we process your data; correction; deletion; portability (a copy of your data); information about how your data is shared; objection to or restriction of certain processing; anonymisation or blocking in certain cases; and withdrawal of consent where consent is the legal basis. To exercise any of these, contact KB Sites through https://kbsites.com.br/#contact and we will respond within a reasonable time. (The email address in this section is left out of this copy.)
+
+### 9. International transfers
+
+KB Sites operates from Brazil and serves clients in other countries, including the United States. This means your information may be processed in, or transferred to, countries other than your own. We take reasonable steps to protect it wherever it is processed.
+
+### 10. Security
+
+We use reasonable measures to protect your information. However, no method of transmission or storage over the internet is completely secure, and we cannot guarantee absolute security.
+
+### 11. Children
+
+Our services are intended for businesses and adults. We do not knowingly collect personal information from children.
+
+### 12. Changes to this policy
+
+We may update this policy from time to time. The current version is the one published here, shown by the "Last updated" date above.
+
+### 13. Contact
+
+Questions or requests about your privacy? Use the contact form at https://kbsites.com.br/#contact. (The email address in this section is left out of this copy.)
