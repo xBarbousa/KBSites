@@ -626,11 +626,23 @@ function kb_rate_ok($key, $max, $win) {
   return true;
 }
 
-// Plain-text email from the studio address. Returns mail() result.
-function kb_mail($to, $subject, $body, $replyTo = 'kaua12131415a@gmail.com') {
+// The public support address the site sends from (and replies go to). Editable via the
+// 'support_email' setting; defaults to support@<domain>. Replies land in your inbox through
+// the Cloudflare Email Routing catch-all, so your personal address is never exposed.
+function kb_support_email() {
+  $v = kb_setting_get('support_email');
+  if ($v && filter_var($v, FILTER_VALIDATE_EMAIL)) return $v;
   $host = preg_replace('/^www\./', '', $_SERVER['HTTP_HOST'] ?? 'kbsites.com.br');
-  $hd  = "From: KB Sites <noreply@$host>\r\n";
+  return 'support@' . $host;
+}
+// Plain-text email from the support address. Returns mail() result.
+function kb_mail($to, $subject, $body, $replyTo = null) {
+  $from = kb_support_email();
+  if ($replyTo === null) $replyTo = $from;
+  $hd  = "From: KB Sites <$from>\r\n";
   if ($replyTo) $hd .= "Reply-To: " . kb_hdr($replyTo) . "\r\n";
   $hd .= "Content-Type: text/plain; charset=UTF-8\r\n";
-  return @mail(kb_hdr($to), kb_hdr($subject), $body, $hd);
+  $ok = @mail(kb_hdr($to), kb_hdr($subject), $body, $hd, '-f' . $from);
+  if (!$ok) $ok = @mail(kb_hdr($to), kb_hdr($subject), $body, $hd); // some hosts refuse -f
+  return $ok;
 }

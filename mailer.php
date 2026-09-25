@@ -402,11 +402,11 @@ function kb_mail_html_send($to, $subject, $kind, $vars) {
 
   $ok = false;
   if (filter_var($to, FILTER_VALIDATE_EMAIL)) {
-    $from = 'noreply@' . kb_mail_host();
+    $from = function_exists('kb_support_email') ? kb_support_email() : ('support@' . kb_mail_host());
     $b    = 'kbalt_' . bin2hex(random_bytes(12));
     $crlf = function($s){ return str_replace("\n", "\r\n", str_replace(["\r\n", "\r"], "\n", (string)$s)); };
     $hd  = "From: KB Sites <$from>\r\n";
-    $rt  = kb_hdr(kb_admin_email());
+    $rt  = kb_hdr($from); // replies go to support@ → your inbox via the catch-all
     if ($rt !== '' && filter_var($rt, FILTER_VALIDATE_EMAIL)) $hd .= "Reply-To: KB Sites <$rt>\r\n";
     $hd .= "MIME-Version: 1.0\r\n";
     $hd .= "Content-Type: multipart/alternative; boundary=\"$b\"\r\n";
