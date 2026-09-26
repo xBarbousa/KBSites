@@ -174,6 +174,17 @@ function kb_db() {
     PRIMARY KEY(ticket_id, side)
   )");
 
+  // "anti-perdido" escalation queue: a message notification held for a few seconds.
+  // When it comes due, if the recipient (notify_side) has NOT read it in the live chat,
+  // the email (+ Discord for admin) is sent; if they read it, it's suppressed.
+  $pdo->exec("CREATE TABLE IF NOT EXISTS notify_queue(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER, reply_id INTEGER, notify_side TEXT,
+    due_at TEXT,
+    created_at TEXT DEFAULT (datetime('now','localtime'))
+  )");
+  try { $pdo->exec("CREATE INDEX IF NOT EXISTS ix_notify_due ON notify_queue(due_at)"); } catch (Exception $e) {}
+
   return $pdo;
 }
 
@@ -417,6 +428,86 @@ function kb_ticket_commission($t, $pct = null) {
   if (isset($t['comm_pct']) && $t['comm_pct'] !== null && $t['comm_pct'] !== '') $pct = (float)$t['comm_pct'];
   elseif ($pct === null) $pct = kb_ticket_pct($t);
   return round((float)($t['value'] ?? 0) * $pct / 100, 2);
+}
+
+// ===================== "Anti-perdido" chat escalation =====================
+function kb_ticket_by_id($id) {
+  $st = kb_db()->prepare("SELECT * FROM tickets WHERE id=?"); $st->execute([(int)$id]); return $st->fetch();
+}
+// The client address for a ticket: their linked account email, else the ticket email.
+function kb_ticket_client_email($tk) {
+  $o = kb_ticket_owner($tk);
+  return ($o && !empty($o['email'])) ? $o['email'] : (string)($tk['email'] ?? '');
+}
+// Send a Discord "Components V2" CONTAINER message (not an embed). $lines = markdown strings
+// (each becomes a text block, separated by a divider); optional link button at the bottom.
+function kb_discord_container($webhook, $accent, $lines, $btnLabel = '', $btnUrl = '') {
+  if (!$webhook) return;
+  $comp = []; $first = true;
+  foreach ($lines as $ln) {
+    $ln = (string)$ln;
+    if (trim($ln) === '') continue;
+    if (!$first) $comp[] = ['type' => 14];                 // separator
+    $comp[] = ['type' => 10, 'content' => mb_substr($ln, 0, 3900)]; // text display
+    $first = false;
+  }
+  if ($btnUrl !== '' && preg_match('#^https?://#i', $btnUrl)) {
+    $comp[] = ['type' => 1, 'components' => [['type' => 2, 'style' => 5, 'label' => mb_substr($btnLabel ?: 'Abrir', 0, 80), 'url' => $btnUrl]]];
+  }
+  $payload = [
+    'username'   => 'KB Sites',
+    'flags'      => 32768, // IS_COMPONENTS_V2 (1 << 15) — enables the container layout
+    'components' => [['type' => 17, 'accent_color' => (int)$accent, 'components' => $comp]],
+  ];
+  kb_post_json($webhook, json_encode($payload, JSON_UNESCAPED_UNICODE));
+}
+// Hold a message notification for $delay seconds. notify_side = the RECIPIENT ('admin'|'client').
+function kb_enqueue_notify($ticketId, $replyId, $side, $delay = 30) {
+  try {
+    kb_db()->prepare("INSERT INTO notify_queue(ticket_id,reply_id,notify_side,due_at) VALUES(?,?,?,datetime('now','localtime','+" . (int)$delay . " seconds'))")
+           ->execute([(int)$ticketId, (int)$replyId, $side]);
+  } catch (Exception $e) {}
+}
+// Fire due notifications whose recipient still hasn't read them. Called from the chat polls,
+// so an active browser drives the escalation (no cron, no long-held workers).
+function kb_flush_notify_queue() {
+  try {
+    $db = kb_db();
+    $rows = $db->query("SELECT * FROM notify_queue WHERE due_at <= datetime('now','localtime') ORDER BY id ASC LIMIT 25")->fetchAll();
+    foreach ($rows as $q) {
+      $del = $db->prepare("DELETE FROM notify_queue WHERE id=?");
+      $del->execute([$q['id']]);
+      if ($del->rowCount() < 1) continue;                  // another request already claimed it
+      $rr = $db->prepare("SELECT last_read_id FROM chat_reads WHERE ticket_id=? AND side=?");
+      $rr->execute([$q['ticket_id'], $q['notify_side']]);
+      $r = $rr->fetch();
+      $readId = $r ? (int)$r['last_read_id'] : 0;
+      if ($readId >= (int)$q['reply_id']) continue;        // recipient already read it → suppress
+      kb_send_escalation($q);
+    }
+    $db->exec("DELETE FROM notify_queue WHERE due_at < datetime('now','localtime','-1 day')");
+  } catch (Exception $e) {}
+}
+function kb_send_escalation($q) {
+  try {
+    $tk = kb_ticket_by_id($q['ticket_id']); if (!$tk) return;
+    $rep = kb_db()->prepare("SELECT * FROM replies WHERE id=?"); $rep->execute([(int)$q['reply_id']]); $rep = $rep->fetch();
+    if (!$rep) return;
+    $body = (string)$rep['body'];
+    $site = (isset($GLOBALS['KB_SITE']) && $GLOBALS['KB_SITE']) ? rtrim($GLOBALS['KB_SITE'], '/') : 'https://kbsites.com.br';
+    if ($q['notify_side'] === 'admin') {                   // a client message you didn't read in time
+      $owner = kb_ticket_owner($tk); $cname = ($owner['name'] ?? '') ?: (string)$tk['name'];
+      kb_mail_html(kb_admin_email(), null, 'admin_reply', ['name'=>$cname, 'business'=>$tk['business'], 'body'=>$body, 'token'=>$tk['token'], 'ticket_id'=>$tk['id']]);
+      $wh = isset($GLOBALS['KB_DISCORD_WEBHOOK']) ? $GLOBALS['KB_DISCORD_WEBHOOK'] : '';
+      kb_discord_container($wh, 14268786, [
+        '## 💬 Nova mensagem de cliente',
+        '**' . ($cname ?: 'Cliente') . '**' . ($tk['business'] ? ' · ' . $tk['business'] : '') . ' — ticket **#' . $tk['id'] . '**',
+        $body,
+      ], 'Abrir ticket', $site . '/ticket/' . $tk['token']);
+    } else {                                                // an admin reply the client didn't read in time
+      kb_mail_html(kb_ticket_client_email($tk), null, 'studio_reply', ['name'=>$tk['name'], 'body'=>$body, 'token'=>$tk['token'], 'ticket_id'=>$tk['id']]);
+    }
+  } catch (Exception $e) {}
 }
 
 // ===================== Moderators (admins) + ratings =====================

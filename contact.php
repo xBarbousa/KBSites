@@ -179,22 +179,11 @@ if ($refA) kb_mail_html($refA['email'], null, 'referral_received', [
 if (!empty($KB_DISCORD_WEBHOOK)) {
   $site = isset($KB_SITE) && $KB_SITE ? rtrim($KB_SITE, '/') : ('https://' . $host);
   $url  = $site . '/ticket/' . $ticketToken;
-  $payload = json_encode([
-    'username' => 'KB Sites',
-    'content'  => 'New website request **#' . $ticketId . '**',
-    'embeds' => [[
-      'title'       => 'Request #' . $ticketId . ' — ' . ($business !== '' ? $business : $name),
-      'url'         => $url,
-      'description' => mb_substr($message !== '' ? $message : '(no message)', 0, 1500),
-      'color'       => 14268786,
-      'fields'      => array_values(array_filter([
-        ['name'=>'Name',  'value'=>($name ?: '-'),  'inline'=>true],
-        ['name'=>'Email', 'value'=>($email ?: '-'), 'inline'=>true],
-        ['name'=>'Plan',  'value'=>$planTxt,        'inline'=>true],
-        $refCode ? ['name'=>'Referred by', 'value'=>$refName.' ('.$refCode.')', 'inline'=>false] : null,
-        ['name'=>'Open', 'value'=>$url, 'inline'=>false],
-      ])),
-    ]],
-  ], JSON_UNESCAPED_UNICODE);
-  kb_post_json($KB_DISCORD_WEBHOOK, $payload);
+  kb_discord_container($KB_DISCORD_WEBHOOK, 14268786, [
+    '## 🌐 Novo pedido de site #' . $ticketId,
+    '**' . ($business !== '' ? $business : $name) . '**' . ($email !== '' ? ' · ' . $email : ''),
+    'Plano: ' . $planTxt,
+    $refCode ? '**Indicado por:** ' . $refName . ' (' . $refCode . ')' : '',
+    mb_substr($message !== '' ? $message : '(sem mensagem)', 0, 1500),
+  ], 'Abrir pedido', $url);
 }

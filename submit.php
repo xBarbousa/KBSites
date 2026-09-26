@@ -83,21 +83,10 @@ if ($refA) kb_mail_html($refA['email'], null, 'referral_received', ['name'=>$ref
 
 // ---- Discord notification ----
 if ($DISCORD) {
-  $payload = json_encode([
-    'username' => 'KB Sites',
-    'content'  => 'New ticket **#' . $id . '**',
-    'embeds' => [[
-      'title'       => 'Ticket #' . $id . ' — ' . ($business !== '' ? $business : $name),
-      'url'         => $url,
-      'description' => mb_substr($message, 0, 1500),
-      'color'       => 14268786,
-      'fields'      => array_values(array_filter([
-        ['name'=>'Name',  'value'=>($name ?: '-'),  'inline'=>true],
-        ['name'=>'Email', 'value'=>($email ?: '-'), 'inline'=>true],
-        $refCode ? ['name'=>'Referred by', 'value'=>$refName.' ('.$refCode.')', 'inline'=>false] : null,
-        ['name'=>'Open ticket', 'value'=>$url, 'inline'=>false],
-      ])),
-    ]],
-  ], JSON_UNESCAPED_UNICODE);
-  kb_post_json($DISCORD, $payload);
+  kb_discord_container($DISCORD, 14268786, [
+    '## 🎫 Novo ticket #' . $id,
+    '**' . ($business !== '' ? $business : $name) . '**' . ($email !== '' ? ' · ' . $email : ''),
+    mb_substr($message, 0, 1500),
+    $refCode ? '**Indicado por:** ' . $refName . ' (' . $refCode . ')' : '',
+  ], 'Abrir ticket', $url);
 }

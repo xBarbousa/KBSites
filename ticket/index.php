@@ -47,6 +47,7 @@ $logged    = kb_is_admin($adminUser);
 if ($logged && (($_GET['chat'] ?? '') !== '' || in_array($action, ['asend','atyping','aread'], true))) {
   header('Content-Type: application/json; charset=utf-8');
   header('Cache-Control: no-store');
+  kb_flush_notify_queue(); // an active browser drives the "anti-perdido" escalations
   $tkn = preg_replace('/[^A-Za-z0-9]/', '', (string)($_REQUEST['t'] ?? ''));
   $tk  = $tkn !== '' ? kb_ticket_by_token($tkn) : null;
   if (!$tk) { http_response_code(404); echo json_encode(['ok'=>false]); exit; }
@@ -61,9 +62,9 @@ if ($logged && (($_GET['chat'] ?? '') !== '' || in_array($action, ['asend','atyp
     if (($tk['status'] ?? '') === 'new') $db->prepare("UPDATE tickets SET status='replied' WHERE id=?")->execute([$tk['id']]);
     $db->prepare("DELETE FROM chat_typing WHERE ticket_id=? AND side='admin'")->execute([$tk['id']]);
     kb_respond_early(['ok'=>true, 'id'=>$rid, 'at'=>substr(date('Y-m-d H:i:s'), 0, 16)]);
-    kb_mail_html(tk_client_email($tk), null, 'studio_reply', ['name'=>$tk['name'], 'body'=>$body, 'token'=>$tk['token'], 'ticket_id'=>$tk['id']]);
     $owner = kb_ticket_owner($tk);
     if ($owner) kb_notify($owner['id'], $tk['id'], 'reply', 'KB Sites replied to your message', '/account/messages/' . $tk['token']);
+    kb_enqueue_notify($tk['id'], $rid, 'client'); // the client is emailed only if they don't read it in ~30s
     exit;
   }
   if ($action === 'atyping') {                      // "moderator is typing…"
@@ -102,11 +103,11 @@ if ($logged && $action === 'reply') {
   $rb = trim($_POST['body'] ?? '');
   if ($tk && $rb !== '') {
     kb_db()->prepare("INSERT INTO replies(ticket_id,body,who,mod_id) VALUES(?,?,'admin',?)")->execute([$tk['id'], $rb, $adminUser['id']]);
+    $rid = (int) kb_db()->lastInsertId();
     if (($tk['status'] ?? '') === 'new') kb_db()->prepare("UPDATE tickets SET status='replied' WHERE id=?")->execute([$tk['id']]);
-    // branded email with the reply + a link back to the chat (no separate status email for new→replied)
-    kb_mail_html(tk_client_email($tk), null, 'studio_reply', ['name'=>$tk['name'], 'body'=>$rb, 'token'=>$tk['token'], 'ticket_id'=>$tk['id']]);
     $owner = kb_ticket_owner($tk);
     if ($owner) kb_notify($owner['id'], $tk['id'], 'reply', 'KB Sites replied to your message', '/account/messages/' . $tk['token']);
+    kb_enqueue_notify($tk['id'], $rid, 'client'); // branded email fires only if the client doesn't read it in ~30s
     header('Location: index.php?t=' . $tk['token']); exit;
   }
 }

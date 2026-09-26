@@ -116,6 +116,7 @@ if ($me) kb_link_tickets($me); // attach tickets sent with this email to the acc
 if ($me && (($_GET['chat'] ?? '') !== '' || in_array($action, ['csend','ctyping','cread','crate'], true))) {
   header('Content-Type: application/json; charset=utf-8');
   header('Cache-Control: no-store');
+  kb_flush_notify_queue(); // an active browser drives the "anti-perdido" escalations
   $tkn  = preg_replace('/[^A-Za-z0-9]/', '', (string)($_REQUEST['t'] ?? ''));
   $tk   = $tkn !== '' ? kb_ticket_by_token($tkn) : null;
   $owns = $tk && ((($tk['user_id'] ?? null) == $me['id']) || strtolower((string)$tk['email']) === strtolower((string)$me['email']));
@@ -132,9 +133,8 @@ if ($me && (($_GET['chat'] ?? '') !== '' || in_array($action, ['csend','ctyping'
     $db->prepare("UPDATE tickets SET status=CASE WHEN status='closed' THEN 'replied' ELSE status END WHERE id=?")->execute([$tk['id']]);
     $db->prepare("DELETE FROM chat_typing WHERE ticket_id=? AND side='client'")->execute([$tk['id']]);
     kb_respond_early(['ok'=>true, 'id'=>$rid, 'at'=>substr(date('Y-m-d H:i:s'), 0, 16)]);
-    kb_mail(kb_admin_email(), 'Client replied — ticket #' . $tk['id'], $me['name'] . " replied on ticket #" . $tk['id'] . ":\n\n" . $body . "\n\nOpen: $SITE/ticket/" . $tk['token']);
-    if ($DISCORD) kb_post_json($DISCORD, json_encode(['username'=>'KB Sites', 'content'=>'💬 Client replied on ticket **#' . $tk['id'] . '** — ' . $me['name'], 'embeds'=>[['description'=>mb_substr($body,0,1500), 'url'=>$SITE.'/ticket/'.$tk['token'], 'color'=>14268786]]], JSON_UNESCAPED_UNICODE));
     $adm = kb_admin_user(); if ($adm) kb_notify($adm['id'], $tk['id'], 'client_reply', $me['name'] . ' replied on their ticket', '/ticket/' . $tk['token']);
+    kb_enqueue_notify($tk['id'], $rid, 'admin');  // email + Discord fire only if the admin doesn't read it in ~30s
     exit;
   }
 
@@ -254,10 +254,10 @@ if ($me && $action === 'creply') { // client replies on their own ticket
   $owns = $tk && (($tk['user_id']??null)==$me['id'] || strtolower($tk['email'])===strtolower($me['email']));
   if ($owns && $body!=='') {
     kb_db()->prepare("INSERT INTO replies(ticket_id,body,who) VALUES(?,?,'client')")->execute([$tk['id'],$body]);
+    $rid = (int) kb_db()->lastInsertId();
     kb_db()->prepare("UPDATE tickets SET status=CASE WHEN status='closed' THEN 'replied' ELSE status END WHERE id=?")->execute([$tk['id']]);
-    kb_mail(kb_admin_email(), 'Client replied — ticket #'.$tk['id'], $me['name']." replied on ticket #".$tk['id'].":\n\n".$body."\n\nOpen: $SITE/ticket/".$tk['token']);
-    if ($DISCORD) kb_post_json($DISCORD, json_encode(['username'=>'KB Sites','content'=>'💬 Client replied on ticket **#'.$tk['id'].'** — '.$me['name'],'embeds'=>[['description'=>mb_substr($body,0,1500),'url'=>$SITE.'/ticket/'.$tk['token'],'color'=>14268786]]], JSON_UNESCAPED_UNICODE));
     $adm = kb_admin_user(); if ($adm) kb_notify($adm['id'], $tk['id'], 'client_reply', $me['name'].' replied on their ticket', '/ticket/'.$tk['token']);
+    kb_enqueue_notify($tk['id'], $rid, 'admin'); // email + Discord fire only if the admin doesn't read it in ~30s
     header('Location: /account/messages/'.$tk['token'].'?ok=sent'); exit;
   } else { $err='Could not post your reply.'; }
 }
@@ -455,12 +455,29 @@ if ($me) {
   <?php if ($notice): ?><p class="ok"><?=h($notice)?></p><?php endif; ?>
 
 <?php if ($me): // ===================== LOGGED IN =====================
-  if ($view==='' || ($view==='partner' && $isAdmin)) $view = 'messages';
-  $unread = 0; // (future) count of admin replies not seen
+  if (empty($me['pass_hash'])): // Google account without a password → must create one before using the account
+?>
+  <div id="app">
+    <div class="card" style="max-width:460px;margin:0 auto">
+      <h1 style="font-size:1.5rem">Crie uma senha para continuar</h1>
+      <p class="lead" style="font-size:.95rem">Você entrou com o Google. Para usar sua conta, defina uma senha — assim você também consegue entrar pelo e-mail em qualquer dispositivo.</p>
+      <form method="post"><input type="hidden" name="action" value="password">
+        <label>Nova senha (mínimo 6 caracteres)</label>
+        <input type="password" name="newpass" required minlength="6" autofocus>
+        <div style="margin-top:16px"><button class="btn block" type="submit">Salvar e continuar →</button></div>
+      </form>
+      <p class="switch" style="margin-top:14px"><a href="/account/?logout=1">Sair da conta</a></p>
+    </div>
+  </div>
+<?php else:
+  // The owner/admins don't have a client "My messages" area — they use the admin panel.
+  if ($isAdmin && in_array($view, ['', 'messages', 'partner'], true)) $view = 'settings';
+  elseif ($view === '') $view = 'messages';
+  $unread = 0;
 ?>
   <div id="app">
   <div class="nav">
-    <a class="<?=$view==='messages'?'on':''?>" href="/account/messages">My messages<?= $myTickets?' ('.count($myTickets).')':'' ?></a>
+    <?php if (!$isAdmin): ?><a class="<?=$view==='messages'?'on':''?>" href="/account/messages">My messages<?= $myTickets?' ('.count($myTickets).')':'' ?></a><?php endif; ?>
     <a class="<?=in_array($view,['settings','account'],true)?'on':''?>" href="/account/settings">Account</a>
     <?php if (!$isAdmin): ?><a class="<?=$view==='partner'?'on':''?>" href="/account/partner">Partner Program</a><?php endif; ?>
     <?php if ($isAdmin): ?><a class="adm" href="<?=h($SITE)?>/ticket/">🛡️ Admin panel</a><?php endif; ?>
@@ -682,6 +699,7 @@ if ($me) {
   </div>
   </div><!-- #app -->
 <?php endif; // end logged views ?>
+<?php endif; // end password gate ?>
 
 <?php elseif ($pending): // ===================== VERIFY ===================== ?>
   <div class="card" style="max-width:440px;margin:0 auto">

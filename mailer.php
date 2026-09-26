@@ -21,6 +21,9 @@ function kb_mail_catalogue() {
     'studio_reply'       => ['label'=>'Studio reply',          'audience'=>'Client',          'on'=>true,
                              'trigger'=>'You post a reply on a ticket.',
                              'subject'=>'New reply from KB Sites (request #…)'],
+    'admin_reply'        => ['label'=>'Admin: nova mensagem',  'audience'=>'You (admin)',     'on'=>true,
+                             'trigger'=>'A client messages you and you don\'t read it in the live chat within ~30s (escalation).',
+                             'subject'=>'Nova mensagem de cliente'],
     'welcome'            => ['label'=>'Welcome',               'audience'=>'New account',     'on'=>false,
                              'trigger'=>'An account is created (signup code verified, or first Google sign-in).',
                              'subject'=>'Welcome to KB Sites'],
@@ -202,6 +205,21 @@ function kb_mail_content($kind, $v) {
           ['quote', $body],
           ['btn', 'Reply in your chat', $chat],
           ['small', 'Answering in the chat keeps the whole conversation — and your files — in one place.'],
+        ],
+      ];
+
+    case 'admin_reply':
+      $body = trim((string)($v['body'] ?? ''));
+      $tkn  = preg_replace('/[^A-Za-z0-9]/', '', (string)($v['token'] ?? ''));
+      return [
+        'subject' => 'Nova mensagem de cliente' . ($tid ? " — ticket #$tid" : '') . ($biz !== '' ? " ($biz)" : ''),
+        'pre'     => mb_substr((string)preg_replace('/\s+/u', ' ', $body), 0, 110),
+        'title'   => 'Nova mensagem de cliente',
+        'blocks'  => [
+          ['p', ($first !== 'there' ? $first : 'Um cliente') . ($biz !== '' ? " ($biz)" : '') . ' enviou uma mensagem' . ($tid ? " no ticket #$tid" : '') . ':'],
+          ['quote', $body],
+          ['btn', 'Abrir no painel', $site . '/ticket/' . $tkn],
+          ['small', 'Você recebeu este e-mail porque não leu a mensagem no chat ao vivo em 30 segundos.'],
         ],
       ];
 
@@ -448,6 +466,7 @@ function kb_mail_sample($kind, $stage = 'proposal') {
   switch ($kind) {
     case 'status_update':      return $base + ['stage'=>$stage, 'site_url'=>($stage === 'delivered' ? 'https://millerplumbing.com' : '')];
     case 'studio_reply':       return $base + ['body'=>"Hi Jordan! Thanks for the details.\n\nCould you send us your logo and 3–5 photos of your team or past jobs? Then we'll prepare your proposal."];
+    case 'admin_reply':        return $base + ['body'=>"Oi! Já dá pra começar meu site essa semana?"];
     case 'welcome':            return ['name'=>'Jordan Miller', 'pct'=>$pct];
     case 'password_changed':   return ['name'=>'Jordan Miller', 'email'=>'jordan@example.com'];
     case 'partner_welcome':    return ['name'=>'Alex Rivera', 'code'=>'KB7F3A9C', 'pct'=>$pct];
