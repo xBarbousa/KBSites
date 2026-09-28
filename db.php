@@ -439,27 +439,25 @@ function kb_ticket_client_email($tk) {
   $o = kb_ticket_owner($tk);
   return ($o && !empty($o['email'])) ? $o['email'] : (string)($tk['email'] ?? '');
 }
-// Send a Discord "Components V2" CONTAINER message (not an embed). $lines = markdown strings
-// (each becomes a text block, separated by a divider); optional link button at the bottom.
+// Send a Discord notification as a rich EMBED (the card with a colored left bar — visually a
+// "container"). True Components V2 containers/buttons aren't available on plain incoming
+// webhooks (bot/app only), so we use an embed, which webhooks fully support. $lines = markdown
+// strings: the first (with any leading "##" stripped) becomes the title, the rest the body;
+// an optional link is appended as a markdown button at the end.
 function kb_discord_container($webhook, $accent, $lines, $btnLabel = '', $btnUrl = '') {
   if (!$webhook) return;
-  $comp = []; $first = true;
-  foreach ($lines as $ln) {
-    $ln = (string)$ln;
-    if (trim($ln) === '') continue;
-    if (!$first) $comp[] = ['type' => 14];                 // separator
-    $comp[] = ['type' => 10, 'content' => mb_substr($ln, 0, 3900)]; // text display
-    $first = false;
-  }
-  if ($btnUrl !== '' && preg_match('#^https?://#i', $btnUrl)) {
-    $comp[] = ['type' => 1, 'components' => [['type' => 2, 'style' => 5, 'label' => mb_substr($btnLabel ?: 'Abrir', 0, 80), 'url' => $btnUrl]]];
-  }
-  $payload = [
-    'username'   => 'KB Sites',
-    'flags'      => 32768, // IS_COMPONENTS_V2 (1 << 15) — enables the container layout
-    'components' => [['type' => 17, 'accent_color' => (int)$accent, 'components' => $comp]],
-  ];
-  kb_post_json($webhook, json_encode($payload, JSON_UNESCAPED_UNICODE));
+  $lines = array_values(array_filter(array_map(fn($x) => trim((string)$x), $lines), fn($x) => $x !== ''));
+  $title = '';
+  if ($lines) { $title = mb_substr(preg_replace('/^#+\s*/', '', $lines[0]), 0, 240); array_shift($lines); }
+  $desc = implode("\n\n", $lines);
+  $hasBtn = ($btnUrl !== '' && preg_match('#^https?://#i', $btnUrl));
+  if ($hasBtn) $desc .= "\n\n**[" . ($btnLabel ?: 'Abrir') . " →](" . $btnUrl . ")**";
+  $desc = mb_substr($desc, 0, 4000);
+  $embed = ['color' => (int)$accent];
+  if ($title !== '') $embed['title'] = $title;
+  if ($desc !== '')  $embed['description'] = $desc;
+  if ($hasBtn)       $embed['url'] = $btnUrl;
+  kb_post_json($webhook, json_encode(['username' => 'KB Sites', 'embeds' => [$embed]], JSON_UNESCAPED_UNICODE));
 }
 // Hold a message notification for $delay seconds. notify_side = the RECIPIENT ('admin'|'client').
 function kb_enqueue_notify($ticketId, $replyId, $side, $delay = 30) {
